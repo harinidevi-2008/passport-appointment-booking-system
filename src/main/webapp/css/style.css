@@ -1,0 +1,480 @@
+body {
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.landing-page {
+    color: #172033;
+    background: #f5f7fb;
+}
+
+.landing-nav {
+    background: #0b2240;
+    box-shadow: 0 8px 24px rgba(11, 34, 64, 0.16);
+}
+
+.landing-nav .navbar-brand,
+.landing-nav .nav-link {
+    color: #ffffff;
+}
+
+.landing-nav .navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.landing-nav .nav-link {
+    font-weight: 600;
+    opacity: 0.88;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.landing-nav .nav-link:hover,
+.landing-nav .nav-link.active {
+    color: #f8c44f;
+    opacity: 1;
+}
+
+.landing-nav .navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.landing-nav .navbar-toggler-icon {
+    filter: invert(1);
+}
+
+.brand-icon {
+    width: 38px;
+    height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #f8c44f;
+    color: #0b2240;
+}
+
+.nav-register-btn {
+    margin-left: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 700;
+    color: #0b2240;
+}
+
+.hero-section {
+    min-height: calc(100vh - 70px);
+    display: flex;
+    align-items: center;
+    padding: 72px 0 64px;
+    background:
+        linear-gradient(90deg, rgba(11, 34, 64, 0.96), rgba(16, 55, 96, 0.9)),
+        radial-gradient(circle at 78% 28%, rgba(248, 196, 79, 0.24), transparent 32%);
+    color: #ffffff;
+}
+
+.section-kicker {
+    margin-bottom: 0.75rem;
+    color: #c99215;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.hero-section .section-kicker {
+    color: #f8c44f;
+}
+
+.hero-section h1 {
+    max-width: 760px;
+    margin-bottom: 1rem;
+    font-size: clamp(2.4rem, 5vw, 4.5rem);
+    line-height: 1.05;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+.hero-subtitle {
+    max-width: 660px;
+    margin-bottom: 1rem;
+    font-size: clamp(1.25rem, 2vw, 1.65rem);
+    font-weight: 600;
+    color: #e8eef7;
+}
+
+.hero-description {
+    max-width: 650px;
+    margin-bottom: 2rem;
+    color: #c9d5e7;
+    font-size: 1.05rem;
+    line-height: 1.75;
+}
+
+.hero-actions .btn {
+    min-width: 150px;
+    border-radius: 8px;
+    font-weight: 700;
+}
+
+.passport-visual {
+    position: relative;
+    min-height: 430px;
+}
+
+.passport-card {
+    position: relative;
+    z-index: 2;
+    max-width: 360px;
+    min-height: 460px;
+    margin-left: auto;
+    padding: 34px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 8px;
+    background: #12345a;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.26);
+}
+
+.passport-card::before {
+    content: "";
+    position: absolute;
+    inset: 18px;
+    border: 1px solid rgba(248, 196, 79, 0.45);
+    border-radius: 6px;
+}
+
+.passport-emblem {
+    position: relative;
+    z-index: 1;
+    width: 94px;
+    height: 94px;
+    margin: 72px auto 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(248, 196, 79, 0.8);
+    border-radius: 50%;
+    color: #f8c44f;
+    font-size: 3rem;
+}
+
+.passport-label,
+.passport-card h2,
+.document-lines {
+    position: relative;
+    z-index: 1;
+}
+
+.passport-label {
+    margin-bottom: 0.45rem;
+    color: #f8c44f;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.passport-card h2 {
+    color: #ffffff;
+    font-size: 1.75rem;
+    font-weight: 800;
+    text-align: center;
+}
+
+.document-lines {
+    margin-top: 42px;
+}
+
+.document-lines span {
+    display: block;
+    height: 8px;
+    margin-bottom: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.document-lines span:nth-child(2) {
+    width: 78%;
+}
+
+.document-lines span:nth-child(3) {
+    width: 58%;
+}
+
+.appointment-tile,
+.security-tile {
+    position: absolute;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #172033;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.appointment-tile {
+    left: 0;
+    bottom: 44px;
+    padding: 1rem 1.2rem;
+}
+
+.appointment-tile i,
+.security-tile i {
+    color: #0b5ed7;
+    font-size: 1.65rem;
+}
+
+.appointment-tile strong,
+.appointment-tile span {
+    display: block;
+}
+
+.appointment-tile span {
+    color: #667085;
+    font-size: 0.9rem;
+}
+
+.security-tile {
+    right: 0;
+    top: 58px;
+    padding: 0.85rem 1rem;
+    font-weight: 700;
+}
+
+.content-section,
+.workflow-section {
+    padding: 72px 0;
+}
+
+.content-section {
+    background: #ffffff;
+}
+
+.workflow-section {
+    background: #eef3f8;
+}
+
+.section-heading {
+    max-width: 720px;
+    margin: 0 auto 38px;
+}
+
+.section-heading h2 {
+    margin-bottom: 0.75rem;
+    color: #0b2240;
+    font-size: clamp(1.9rem, 3vw, 2.6rem);
+    font-weight: 800;
+}
+
+.section-heading p:last-child {
+    color: #667085;
+}
+
+.feature-card,
+.workflow-step {
+    border: 1px solid #dce4ef;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 12px 30px rgba(11, 34, 64, 0.08);
+}
+
+.feature-card {
+    padding: 28px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+    border-color: #b8c6d8;
+    box-shadow: 0 18px 38px rgba(11, 34, 64, 0.12);
+}
+
+.feature-card i {
+    width: 52px;
+    height: 52px;
+    margin-bottom: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #e8f0fb;
+    color: #0b5ed7;
+    font-size: 1.55rem;
+}
+
+.feature-card h3,
+.workflow-step h3 {
+    color: #0b2240;
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.feature-card p,
+.workflow-step p {
+    margin-bottom: 0;
+    color: #667085;
+    line-height: 1.6;
+}
+
+.workflow-step {
+    height: 100%;
+    padding: 30px;
+    text-align: center;
+}
+
+.workflow-step span {
+    width: 46px;
+    height: 46px;
+    margin: 0 auto 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #0b2240;
+    color: #f8c44f;
+    font-weight: 800;
+}
+
+.landing-footer {
+    padding: 28px 0;
+    background: #0b2240;
+    color: #d9e4f2;
+}
+
+.landing-footer strong {
+    color: #ffffff;
+}
+
+.landing-footer p {
+    color: #aebbd0;
+    font-size: 0.95rem;
+}
+
+.footer-links {
+    display: flex;
+    gap: 1.25rem;
+}
+
+.footer-links a {
+    color: #d9e4f2;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.footer-links a:hover {
+    color: #f8c44f;
+}
+
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: linear-gradient(135deg, #0d6efd 0%, #20c997 100%);
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 430px;
+    border-radius: 18px;
+}
+
+.auth-card .form-control {
+    border-radius: 10px;
+    padding: 11px 14px;
+}
+
+.auth-card .btn {
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-weight: 600;
+}
+
+.dashboard-nav {
+    background: linear-gradient(135deg, #0d6efd 0%, #198754 100%);
+}
+
+.dashboard-page {
+    min-height: calc(100vh - 56px);
+    padding: 48px 0;
+    background: #f4f7fb;
+}
+
+.dashboard-panel {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 32px;
+    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+}
+
+@media (max-width: 991.98px) {
+    .nav-register-btn {
+        margin: 0.5rem 0 0;
+        display: inline-flex;
+        justify-content: center;
+    }
+
+    .hero-section {
+        min-height: auto;
+        padding: 56px 0;
+    }
+
+    .passport-visual {
+        min-height: 390px;
+    }
+
+    .passport-card {
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .landing-nav .navbar-brand span:last-child {
+        max-width: 230px;
+        white-space: normal;
+        line-height: 1.2;
+    }
+
+    .passport-visual {
+        min-height: 370px;
+    }
+
+    .passport-card {
+        min-height: 400px;
+        padding: 28px;
+    }
+
+    .passport-emblem {
+        margin-top: 58px;
+    }
+
+    .appointment-tile,
+    .security-tile {
+        position: relative;
+        left: auto;
+        right: auto;
+        top: auto;
+        bottom: auto;
+        max-width: 310px;
+        margin: -16px auto 0;
+    }
+
+    .security-tile {
+        margin-top: 16px;
+    }
+
+    .content-section,
+    .workflow-section {
+        padding: 56px 0;
+    }
+
+    .footer-links {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+}
