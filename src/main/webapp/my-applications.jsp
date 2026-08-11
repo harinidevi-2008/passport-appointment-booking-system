@@ -37,6 +37,7 @@
             <a class="nav-link" href="user-dashboard.jsp">Dashboard</a>
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link active" href="my-applications">My Applications</a>
+            <a class="nav-link" href="appointment?action=my">My Appointments</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -80,7 +81,10 @@
                                 <td><span class="badge text-bg-success"><%= item.getStatus() %></span></td>
                                 <td><%= item.getCreatedAt() %></td>
                                 <td>
-                                    <a class="btn btn-sm btn-primary" href="application-details?id=<%= item.getId() %>">View Details</a>
+                                    <div class="d-flex flex-wrap gap-2">
+                                        <a class="btn btn-sm btn-primary" href="application-details?id=<%= item.getId() %>">View Details</a>
+                                        <a class="btn btn-sm btn-outline-primary" href="appointment?action=book&applicationId=<%= item.getId() %>">Book Appointment</a>
+                                    </div>
                                 </td>
                             </tr>
                         <% } %>
