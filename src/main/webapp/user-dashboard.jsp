@@ -15,19 +15,43 @@
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark dashboard-nav">
+<nav class="navbar navbar-expand-lg user-navbar">
     <div class="container">
-        <span class="navbar-brand">Passport Appointment Booking System</span>
-        <a class="btn btn-outline-light" href="logout">Logout</a>
+        <a class="navbar-brand" href="user-dashboard.jsp">Passport Appointment Booking System</a>
+        <div class="user-nav-links">
+            <a class="nav-link active" href="user-dashboard.jsp">Dashboard</a>
+            <a class="nav-link" href="passport-application">Apply Passport</a>
+            <a class="nav-link" href="my-applications">My Applications</a>
+            <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
+        </div>
     </div>
 </nav>
 
-<main class="dashboard-page">
+<main class="dashboard-page user-portal-page">
     <div class="container">
-        <div class="dashboard-panel">
-            <p class="text-uppercase text-muted fw-semibold mb-2">User Dashboard</p>
+        <div class="portal-welcome-card mb-4">
+            <p class="portal-kicker mb-2">User Dashboard</p>
             <h1>Welcome, <%= session.getAttribute("fullName") %></h1>
-            <p class="lead mb-0">Passport Appointment Booking System</p>
+            <p class="mb-0">Passport Appointment Booking System</p>
+        </div>
+
+        <div class="row g-4 align-items-stretch">
+            <div class="col-lg-6">
+                <div class="service-card h-100">
+                    <div class="service-icon">🛂</div>
+                    <h2>Apply for Passport</h2>
+                    <p>Submit a new passport application.</p>
+                    <a class="btn btn-primary btn-lg mt-auto" href="passport-application">Apply Now</a>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="service-card h-100">
+                    <div class="service-icon">📋</div>
+                    <h2>My Applications</h2>
+                    <p>View submitted applications and current status.</p>
+                    <a class="btn btn-primary btn-lg mt-auto" href="my-applications">View Applications</a>
+                </div>
+            </div>
         </div>
     </div>
 </main>

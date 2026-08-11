@@ -1,0 +1,62 @@
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%
+    if (session == null || session.getAttribute("userId") == null) {
+        response.sendRedirect("login.jsp");
+        return;
+    }
+
+    String role = (String) session.getAttribute("role");
+    if (!"USER".equalsIgnoreCase(role)) {
+        response.sendRedirect("admin-dashboard.jsp");
+        return;
+    }
+
+    Object applicationId = session.getAttribute("lastApplicationId");
+    Object applicationNumber = session.getAttribute("lastApplicationNumber");
+    Object applicationStatus = session.getAttribute("lastApplicationStatus");
+
+    if (applicationId == null || applicationNumber == null) {
+        response.sendRedirect("my-applications");
+        return;
+    }
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Application Submitted</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg user-navbar">
+    <div class="container">
+        <a class="navbar-brand" href="user-dashboard.jsp">Passport Appointment Booking System</a>
+        <div class="user-nav-links">
+            <a class="nav-link" href="user-dashboard.jsp">Dashboard</a>
+            <a class="nav-link" href="passport-application">Apply Passport</a>
+            <a class="nav-link" href="my-applications">My Applications</a>
+            <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
+        </div>
+    </div>
+</nav>
+
+<main class="dashboard-page user-portal-page">
+    <div class="container">
+        <div class="dashboard-panel success-panel text-center">
+            <p class="text-uppercase text-muted fw-semibold mb-2">Application Submitted</p>
+            <h1 class="h3 mb-3">Passport Application Submitted Successfully</h1>
+            <p class="lead mb-1">Application Number: <strong><%= applicationNumber %></strong></p>
+            <p class="mb-4">Status: <span class="badge text-bg-success"><%= applicationStatus %></span></p>
+
+            <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
+                <a class="btn btn-primary" href="application-details?id=<%= applicationId %>">View Application</a>
+                <a class="btn btn-outline-primary" href="my-applications">My Applications</a>
+                <a class="btn btn-outline-secondary" href="user-dashboard.jsp">Back to Dashboard</a>
+            </div>
+        </div>
+    </div>
+</main>
+</body>
+</html>

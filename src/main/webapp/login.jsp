@@ -19,6 +19,15 @@
                     Invalid email or password.
                 </div>
             <% } %>
+            <%
+                String loginSuccessMessage = (String) session.getAttribute("loginSuccessMessage");
+                if (loginSuccessMessage != null) {
+                    session.removeAttribute("loginSuccessMessage");
+            %>
+                <div class="alert alert-success" role="alert">
+                    <%= loginSuccessMessage %>
+                </div>
+            <% } %>
 
             <form action="login" method="post">
                 <div class="mb-3">
@@ -33,6 +42,10 @@
 
                 <button type="submit" class="btn btn-primary w-100">Login</button>
             </form>
+
+            <p class="text-center mt-3 mb-0">
+                <a href="forgot-password.jsp">Forgot Password?</a>
+            </p>
 
             <p class="text-center mt-4 mb-0">
                 Don't have an account?

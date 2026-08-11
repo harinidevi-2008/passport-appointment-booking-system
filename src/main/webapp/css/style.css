@@ -395,24 +395,302 @@ body {
     font-weight: 600;
 }
 
-.dashboard-nav {
-    background: linear-gradient(135deg, #0d6efd 0%, #198754 100%);
+.dashboard-nav,
+.user-navbar {
+    background: #0b3a75;
+    box-shadow: 0 8px 22px rgba(11, 58, 117, 0.18);
+}
+
+.user-navbar .container {
+    gap: 1rem;
+}
+
+.user-navbar .navbar-brand {
+    color: #ffffff;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+.user-navbar .navbar-brand:hover {
+    color: #ffffff;
+}
+
+.user-nav-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    margin-left: auto;
+}
+
+.user-nav-links .nav-link {
+    padding: 0.45rem 0.75rem;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.84);
+    font-weight: 700;
+}
+
+.user-nav-links .nav-link:hover,
+.user-nav-links .nav-link.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
 }
 
 .dashboard-page {
     min-height: calc(100vh - 56px);
-    padding: 48px 0;
-    background: #f4f7fb;
+    padding: 32px 0;
+    background: #eef3f8;
+}
+
+.user-portal-page {
+    color: #172033;
+}
+
+.dashboard-panel,
+.portal-welcome-card,
+.application-shell,
+.details-shell {
+    background: #ffffff;
+    border: 1px solid #dce4ef;
+    border-radius: 16px;
+    box-shadow: 0 16px 38px rgba(15, 23, 42, 0.1);
 }
 
 .dashboard-panel {
+    padding: 28px;
+}
+
+.portal-welcome-card {
+    padding: 28px 30px;
+}
+
+.portal-welcome-card h1,
+.page-heading h1,
+.details-header h1 {
+    margin-bottom: 0.35rem;
+    color: #0b2240;
+    font-weight: 800;
+    letter-spacing: 0;
+}
+
+.portal-welcome-card h1 {
+    font-size: clamp(1.8rem, 3vw, 2.5rem);
+}
+
+.portal-welcome-card p:last-child,
+.page-heading p:last-child,
+.details-header p {
+    color: #5f6f86;
+    font-size: 1.05rem;
+}
+
+.portal-kicker {
+    color: #0b5ed7;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.service-card {
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    padding: 30px;
+    border: 1px solid #d9e3ef;
+    border-radius: 16px;
     background: #ffffff;
-    border-radius: 18px;
-    padding: 32px;
-    box-shadow: 0 18px 45px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 12px 28px rgba(11, 58, 117, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.service-card:hover {
+    transform: translateY(-4px);
+    border-color: #9db9dc;
+    box-shadow: 0 18px 40px rgba(11, 58, 117, 0.16);
+}
+
+.service-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    background: #e8f1fc;
+    font-size: 2rem;
+}
+
+.service-card h2 {
+    margin-bottom: 0.6rem;
+    color: #0b2240;
+    font-size: 1.45rem;
+    font-weight: 800;
+}
+
+.service-card p {
+    color: #667085;
+    line-height: 1.6;
+}
+
+.service-card .btn,
+.form-actions .btn {
+    border-radius: 10px;
+    font-weight: 800;
+}
+
+.application-shell,
+.details-shell {
+    width: min(100%, 980px);
+    margin: 0 auto;
+    padding: 28px;
+}
+
+.page-heading h1,
+.details-header h1 {
+    font-size: 1.8rem;
+}
+
+.form-section-card {
+    margin-bottom: 20px;
+    border: 1px solid #dce4ef;
+    border-radius: 14px;
+    background: #f8fafc;
+    box-shadow: none;
+}
+
+.form-section-card .card-body {
+    padding: 22px;
+}
+
+.form-section-card h2 {
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #dce4ef;
+    color: #0b2240;
+    font-size: 1.12rem;
+    font-weight: 800;
+}
+
+.form-section-card .form-label {
+    color: #344054;
+    font-weight: 700;
+}
+
+.form-section-card .form-control,
+.form-section-card .form-select {
+    border-radius: 10px;
+    padding: 11px 13px;
+}
+
+.form-section-card .form-control:focus,
+.form-section-card .form-select:focus {
+    border-color: #0b5ed7;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.12);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 24px;
+}
+
+.table-panel {
+    overflow: hidden;
+}
+
+.application-table {
+    margin-bottom: 0;
+}
+
+.application-table thead th {
+    padding: 14px 16px;
+    border-bottom: 1px solid #dce4ef;
+    background: #f1f6fc;
+    color: #0b2240;
+    font-size: 0.86rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.application-table tbody td {
+    padding: 16px;
+    color: #344054;
+}
+
+.application-table tbody tr:hover {
+    background: #f8fbff;
+}
+
+.empty-state {
+    padding: 34px;
+    border: 1px solid #dce4ef;
+    border-radius: 12px;
+    background: #f8fafc;
+    text-align: center;
+}
+
+.details-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #dce4ef;
+}
+
+.details-section {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #dce4ef;
+}
+
+.detail-row {
+    padding: 9px 0;
+}
+
+.detail-label {
+    color: #5f6f86;
+    font-weight: 800;
+}
+
+.detail-value {
+    color: #172033;
+    font-weight: 700;
+    word-break: break-word;
+}
+
+.status-badge {
+    padding: 0.7rem 1rem;
+    border-radius: 999px;
+    font-size: 0.9rem;
+}
+
+.success-panel {
+    max-width: 760px;
+    margin: 0 auto;
 }
 
 @media (max-width: 991.98px) {
+    .user-navbar .container {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .user-nav-links {
+        justify-content: flex-start;
+        margin-left: 0;
+    }
+
+    .application-shell,
+    .details-shell {
+        width: 100%;
+    }
+
     .nav-register-btn {
         margin: 0.5rem 0 0;
         display: inline-flex;
@@ -434,6 +712,35 @@ body {
 }
 
 @media (max-width: 575.98px) {
+    .dashboard-page {
+        padding: 22px 0;
+    }
+
+    .portal-welcome-card,
+    .dashboard-panel,
+    .application-shell,
+    .details-shell {
+        padding: 20px;
+        border-radius: 14px;
+    }
+
+    .service-card {
+        min-height: 240px;
+        padding: 24px;
+    }
+
+    .form-actions {
+        flex-direction: column-reverse;
+    }
+
+    .details-header {
+        flex-direction: column;
+    }
+
+    .detail-label {
+        margin-bottom: 0.2rem;
+    }
+
     .landing-nav .navbar-brand span:last-child {
         max-width: 230px;
         white-space: normal;

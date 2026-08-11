@@ -11,6 +11,31 @@ This project is being developed incrementally through multiple modules.
 
 ---
 
+## Password Reset Email Configuration
+
+The password reset flow sends a 6-digit OTP to the user's registered email address. Mail credentials must be configured with environment variables before starting Tomcat.
+
+1. Create or configure the email sender account. For Gmail, use an app password rather than your normal account password.
+2. Set these environment variables:
+
+```text
+PABS_MAIL_USERNAME=your-email@example.com
+PABS_MAIL_PASSWORD=your-app-password
+PABS_MAIL_HOST=smtp.gmail.com
+PABS_MAIL_PORT=587
+```
+
+`PABS_MAIL_USERNAME` and `PABS_MAIL_PASSWORD` are required. `PABS_MAIL_HOST` and `PABS_MAIL_PORT` default to Gmail SMTP values when omitted.
+
+3. Run `database/password_reset_otp.sql` once against `passport_db` to create the password reset OTP table.
+4. Start the application.
+5. From `login.jsp`, click `Forgot Password?`, enter the registered email address, and submit.
+6. Enter the OTP received by email, then set and confirm the new password.
+
+Never commit real mail passwords, SMTP secrets, API keys, or `.env` files.
+
+---
+
 ## 🚀 Current Module
 
 ### Module 1 – User Authentication and Registration

@@ -13,7 +13,7 @@ public class DBConnection {
     private static final String USERNAME = "root";
     private static final String PASSWORD = System.getenv("PABS_DB_PASSWORD");
 
-    public static Connection getConnection() {
+    public static Connection getConnection() throws SQLException {
 
         try {
 
@@ -25,10 +25,9 @@ public class DBConnection {
                     PASSWORD
             );
 
-        } catch (ClassNotFoundException | SQLException e) {
+        } catch (ClassNotFoundException e) {
 
-            e.printStackTrace();
-            return null;
+            throw new SQLException("MySQL JDBC driver not found.", e);
 
         }
     }
