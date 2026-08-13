@@ -54,7 +54,7 @@ public class DocumentDAO {
         return null;
     }
 
-    public boolean upsert(Document document) {
+    public boolean upsert(Document document) throws SQLException {
 
         try (
                 Connection connection = DBConnection.getConnection();
@@ -68,11 +68,7 @@ public class DocumentDAO {
 
             return ps.executeUpdate() > 0;
 
-        } catch (SQLException e) {
-            e.printStackTrace();
         }
-
-        return false;
     }
 
     public List<Document> findAllWithUsers() {

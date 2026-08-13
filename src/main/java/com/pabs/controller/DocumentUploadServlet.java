@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -186,6 +187,16 @@ public class DocumentUploadServlet extends HttpServlet {
             LOGGER.info(() -> "Documents uploaded successfully. userId=" + userId);
             response.sendRedirect("documents?uploaded=1");
 
+        } catch (SQLException e) {
+            deleteFiles(savedFilenames);
+            LOGGER.log(Level.SEVERE,
+                    "Document metadata update failed. userId=" + userId
+                            + ", sqlState=" + e.getSQLState()
+                            + ", errorCode=" + e.getErrorCode()
+                            + ", message=" + e.getMessage(),
+                    e);
+            request.setAttribute("errorMessage", databaseErrorMessage(e));
+            showDocumentUpload(request, response, session);
         } catch (UploadValidationException e) {
             deleteFiles(savedFilenames);
             request.setAttribute("errorMessage", e.getMessage());
@@ -277,6 +288,18 @@ public class DocumentUploadServlet extends HttpServlet {
         }
 
         return allowPdf && "pdf".equals(extension) && "application/pdf".equals(contentType);
+    }
+
+    private String databaseErrorMessage(SQLException e) {
+        if ("42S02".equals(e.getSQLState())) {
+            return "Document database table is not available. Please run database/documents.sql, then try again.";
+        }
+
+        if ("23000".equals(e.getSQLState())) {
+            return "Your login could not be matched to a valid user record. Please log out and log in again.";
+        }
+
+        return "Unable to update document information. Please contact the administrator.";
     }
 
     private String extensionFrom(String submittedFileName) throws UploadValidationException {
