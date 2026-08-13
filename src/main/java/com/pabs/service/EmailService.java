@@ -66,6 +66,27 @@ public class EmailService {
         sendEmail(to, subject, body);
     }
 
+    public void sendAppointmentRescheduled(
+            String to,
+            String appointmentNumber,
+            String applicationNumber,
+            String officeName,
+            String oldSchedule,
+            String newSchedule) throws MessagingException {
+
+        String subject = "Passport Appointment Booking System - Appointment Rescheduled";
+        String body = "Passport Appointment Booking System\n\n"
+                + "Your appointment has been rescheduled successfully.\n\n"
+                + "Appointment Number: " + appointmentNumber + "\n"
+                + "Application Number: " + applicationNumber + "\n"
+                + "Office: " + officeName + "\n"
+                + "Previous Schedule: " + oldSchedule + "\n"
+                + "New Schedule: " + newSchedule + "\n\n"
+                + "Please log in to PABS to view your latest appointment details.";
+
+        sendEmail(to, subject, body);
+    }
+
     private String getEnvOrDefault(String name, String defaultValue) {
         String value = System.getenv(name);
         return isBlank(value) ? defaultValue : value;

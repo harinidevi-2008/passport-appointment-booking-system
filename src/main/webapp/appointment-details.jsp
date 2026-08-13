@@ -53,6 +53,18 @@
                 <span class="badge text-bg-primary status-badge"><%= appointmentView.getAppointment().getStatus() %></span>
             </div>
 
+            <% if ("1".equals(request.getParameter("rescheduled"))) { %>
+                <div class="alert alert-success" role="alert">
+                    Your appointment has been rescheduled successfully.
+                </div>
+            <% } %>
+
+            <% if ("1".equals(request.getParameter("mailError"))) { %>
+                <div class="alert alert-warning" role="alert">
+                    Appointment was rescheduled, but the email notification could not be sent.
+                </div>
+            <% } %>
+
             <div class="details-section">
                 <h2 class="h5 mb-3">Application</h2>
                 <div class="row detail-row">
@@ -95,6 +107,9 @@
 
             <div class="form-actions">
                 <a class="btn btn-outline-secondary" href="appointment?action=my">Back to My Appointments</a>
+                <% if (appointmentView.isReschedulable()) { %>
+                    <a class="btn btn-primary" href="appointment?action=reschedule&appointmentId=<%= appointmentView.getAppointment().getId() %>">Reschedule Appointment</a>
+                <% } %>
                 <% if (appointmentView.isCancellable()) { %>
                     <form action="appointment?action=cancel" method="post" class="m-0">
                         <input type="hidden" name="appointmentId" value="<%= appointmentView.getAppointment().getId() %>">

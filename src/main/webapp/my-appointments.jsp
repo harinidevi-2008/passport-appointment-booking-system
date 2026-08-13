@@ -58,6 +58,10 @@
                 <div class="alert alert-danger" role="alert">Unable to cancel the selected appointment.</div>
             <% } %>
 
+            <% if ("1".equals(request.getParameter("rescheduleError"))) { %>
+                <div class="alert alert-danger" role="alert">Unable to reschedule the selected appointment.</div>
+            <% } %>
+
             <% if (appointmentViews == null || appointmentViews.isEmpty()) { %>
                 <div class="empty-state">
                     <p class="mb-3">You do not have any appointments yet.</p>
@@ -89,6 +93,9 @@
                                 <td>
                                     <div class="d-flex flex-wrap gap-2">
                                         <a class="btn btn-sm btn-primary" href="appointment?action=details&id=<%= item.getAppointment().getId() %>">View Details</a>
+                                        <% if (item.isReschedulable()) { %>
+                                            <a class="btn btn-sm btn-outline-primary" href="appointment?action=reschedule&appointmentId=<%= item.getAppointment().getId() %>">Reschedule</a>
+                                        <% } %>
                                         <% if (item.isCancellable()) { %>
                                             <form action="appointment?action=cancel" method="post" class="m-0">
                                                 <input type="hidden" name="appointmentId" value="<%= item.getAppointment().getId() %>">

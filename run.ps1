@@ -120,8 +120,8 @@ if ([string]::IsNullOrWhiteSpace($mailPassword)) {
     Fail "Gmail App Password cannot be empty."
 }
 
-$env:PABS_MAIL_USERNAME="couldnotcomeupwithaname7254@gmail.com"
-$env:PABS_MAIL_PASSWORD="qkwa txdy xonx potp"
+$env:PABS_MAIL_USERNAME=""
+$env:PABS_MAIL_PASSWORD=""
 $env:PABS_DB_PASSWORD="vpfn7254"
 $env:PABS_MAIL_HOST = "smtp.gmail.com"
 $env:PABS_MAIL_PORT = "587"
