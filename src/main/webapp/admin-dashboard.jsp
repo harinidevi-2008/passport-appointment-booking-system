@@ -24,7 +24,10 @@
 <nav class="navbar navbar-expand-lg navbar-dark dashboard-nav">
     <div class="container">
         <span class="navbar-brand">Passport Appointment Booking System</span>
-        <a class="btn btn-outline-light" href="logout">Logout</a>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-light" href="admin-documents">Document Status</a>
+            <a class="btn btn-outline-light" href="logout">Logout</a>
+        </div>
     </div>
 </nav>
 
@@ -34,6 +37,7 @@
             <p class="text-uppercase text-muted fw-semibold mb-2">Admin Dashboard</p>
             <h1>Welcome, <%= session.getAttribute("fullName") %></h1>
             <p class="lead mb-0">You have administrator access.</p>
+            <a class="btn btn-primary mt-4" href="admin-documents">View Document Status</a>
         </div>
     </div>
 </main>

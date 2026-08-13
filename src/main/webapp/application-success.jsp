@@ -14,6 +14,7 @@
     Object applicationId = session.getAttribute("lastApplicationId");
     Object applicationNumber = session.getAttribute("lastApplicationNumber");
     Object applicationStatus = session.getAttribute("lastApplicationStatus");
+    Object applicationEmailSent = session.getAttribute("lastApplicationEmailSent");
 
     if (applicationId == null || applicationNumber == null) {
         response.sendRedirect("my-applications");
@@ -49,6 +50,16 @@
             <h1 class="h3 mb-3">Passport Application Submitted Successfully</h1>
             <p class="lead mb-1">Application Number: <strong><%= applicationNumber %></strong></p>
             <p class="mb-4">Status: <span class="badge text-bg-success"><%= applicationStatus %></span></p>
+
+            <% if (Boolean.TRUE.equals(applicationEmailSent)) { %>
+                <div class="alert alert-success text-start" role="alert">
+                    Your passport application has been submitted successfully. A confirmation email has been sent to your registered email address.
+                </div>
+            <% } else { %>
+                <div class="alert alert-warning text-start" role="alert">
+                    Your application was submitted successfully, but the confirmation email could not be sent. You can still track your application under My Applications.
+                </div>
+            <% } %>
 
             <div class="d-flex flex-column flex-sm-row gap-2 justify-content-center">
                 <a class="btn btn-primary" href="application-details?id=<%= applicationId %>">View Application</a>

@@ -87,6 +87,92 @@ public class EmailService {
         sendEmail(to, subject, body);
     }
 
+    public void sendAppointmentBookedEmail(
+            String to,
+            String fullName,
+            String appointmentNumber,
+            String applicationNumber,
+            String officeName,
+            String appointmentDate,
+            String startTime,
+            String endTime,
+            String status) throws MessagingException {
+
+        String subject = "Passport Appointment Booking System - Appointment Booked";
+        String body = "Passport Appointment Booking System\n\n"
+                + "Dear " + fullName + ",\n\n"
+                + "Your appointment was successfully booked.\n\n"
+                + "Appointment Number: " + appointmentNumber + "\n"
+                + "Application Number: " + applicationNumber + "\n"
+                + "Office: " + officeName + "\n"
+                + "Appointment Date: " + appointmentDate + "\n"
+                + "Appointment Time: " + startTime + " - " + endTime + "\n"
+                + "Current Status: " + status + "\n\n"
+                + "You can view this appointment under My Appointments after logging in to PABS.\n\n"
+                + "Thank you.";
+
+        sendEmail(to, subject, body);
+    }
+
+    public void sendAppointmentCancelledEmail(
+            String to,
+            String fullName,
+            String appointmentNumber,
+            String applicationNumber,
+            String officeName,
+            String appointmentDate,
+            String startTime,
+            String endTime) throws MessagingException {
+
+        String subject = "Passport Appointment Booking System - Appointment Cancelled";
+        String body = "Passport Appointment Booking System\n\n"
+                + "Dear " + fullName + ",\n\n"
+                + "Your appointment was cancelled successfully.\n\n"
+                + "Appointment Number: " + appointmentNumber + "\n"
+                + "Application Number: " + applicationNumber + "\n"
+                + "Office: " + officeName + "\n"
+                + "Original Appointment Date: " + appointmentDate + "\n"
+                + "Original Appointment Time: " + startTime + " - " + endTime + "\n"
+                + "Current Status: CANCELLED\n\n"
+                + "The appointment slot has been released for other applicants.\n\n"
+                + "Thank you.";
+
+        sendEmail(to, subject, body);
+    }
+
+    public void sendApplicationSubmittedEmail(
+            String to,
+            String fullName,
+            String applicationNumber,
+            String status) throws MessagingException {
+
+        String subject = "Passport Application Submitted Successfully";
+        String body = "Passport Appointment Booking System\n\n"
+                + "Dear " + fullName + ",\n\n"
+                + "Your passport application was successfully submitted.\n\n"
+                + "Application Number: " + applicationNumber + "\n"
+                + "Current Status: " + status + "\n\n"
+                + "You can track this application from My Applications after logging in to PABS.\n\n"
+                + "Thank you.";
+
+        sendEmail(to, subject, body);
+    }
+
+    public void sendRegistrationSuccessEmail(
+            String to,
+            String fullName) throws MessagingException {
+
+        String subject = "Passport Appointment Booking System - Registration Successful";
+        String body = "Passport Appointment Booking System\n\n"
+                + "Dear " + fullName + ",\n\n"
+                + "This is a confirmation that your PABS account was successfully created.\n\n"
+                + "Registered Email: " + to + "\n\n"
+                + "You can now log in and use the Passport Appointment Booking System.\n\n"
+                + "Thank you.";
+
+        sendEmail(to, subject, body);
+    }
+
     private String getEnvOrDefault(String name, String defaultValue) {
         String value = System.getenv(name);
         return isBlank(value) ? defaultValue : value;

@@ -22,6 +22,7 @@
             <a class="nav-link active" href="user-dashboard.jsp">Dashboard</a>
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
+            <a class="nav-link" href="documents">Upload Documents</a>
             <a class="nav-link" href="appointment?action=my">My Appointments</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
@@ -37,7 +38,7 @@
         </div>
 
         <div class="row g-4 align-items-stretch">
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <div class="service-card h-100">
                     <div class="service-icon">🛂</div>
                     <h2>Apply for Passport</h2>
@@ -45,7 +46,7 @@
                     <a class="btn btn-primary btn-lg mt-auto" href="passport-application">Apply Now</a>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-3">
                 <div class="service-card h-100">
                     <div class="service-icon">📋</div>
                     <h2>My Applications</h2>
@@ -53,7 +54,15 @@
                     <a class="btn btn-primary btn-lg mt-auto" href="my-applications">View Applications</a>
                 </div>
             </div>
-            <div class="col-lg-4">
+            <div class="col-lg-3">
+                <div class="service-card h-100">
+                    <div class="service-icon">D</div>
+                    <h2>Documents</h2>
+                    <p>Upload or replace required passport documents.</p>
+                    <a class="btn btn-primary btn-lg mt-auto" href="documents">Upload Documents</a>
+                </div>
+            </div>
+            <div class="col-lg-3">
                 <div class="service-card h-100">
                     <div class="service-icon">A</div>
                     <h2>Appointments</h2>

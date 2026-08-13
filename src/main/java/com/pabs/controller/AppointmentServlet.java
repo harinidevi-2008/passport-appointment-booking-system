@@ -326,7 +326,13 @@ public class AppointmentServlet extends HttpServlet {
             return;
         }
 
-        response.sendRedirect("appointment?action=details&id=" + appointment.getId() + "&booked=1");
+        AppointmentView appointmentView = buildAppointmentView(appointment, userId);
+        boolean emailFailed = !sendBookingEmail(session, appointmentView);
+        String redirectUrl = "appointment?action=details&id=" + appointment.getId() + "&booked=1";
+        if (emailFailed) {
+            redirectUrl += "&mailError=1";
+        }
+        response.sendRedirect(redirectUrl);
     }
 
     private void confirmReschedule(HttpServletRequest request,
@@ -433,10 +439,98 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         int userId = (Integer) session.getAttribute("userId");
+        Appointment appointment = appointmentDAO.findByIdForUser(appointmentId, userId);
+        AppointmentView appointmentView = buildAppointmentView(appointment, userId);
+
+        if (appointmentView == null || !appointmentView.isCancellable()) {
+            response.sendRedirect("appointment?action=my&cancelError=1");
+            return;
+        }
+
         if (appointmentDAO.cancelAppointment(appointmentId, userId)) {
-            response.sendRedirect("appointment?action=my&cancelled=1");
+            boolean emailFailed = !sendCancellationEmail(session, appointmentView);
+            String redirectUrl = "appointment?action=my&cancelled=1";
+            if (emailFailed) {
+                redirectUrl += "&mailError=1";
+            }
+            response.sendRedirect(redirectUrl);
         } else {
             response.sendRedirect("appointment?action=my&cancelError=1");
+        }
+    }
+
+    private boolean sendBookingEmail(HttpSession session, AppointmentView appointmentView) {
+
+        if (appointmentView == null) {
+            LOGGER.warning("Appointment booking email skipped because appointment details could not be loaded.");
+            return false;
+        }
+
+        String to = getRecipientEmail(session, appointmentView);
+        String fullName = getRecipientName(session, appointmentView);
+
+        try {
+            emailService.sendAppointmentBookedEmail(
+                    to,
+                    fullName,
+                    appointmentView.getAppointment().getAppointmentNumber(),
+                    appointmentView.getApplication().getApplicationNumber(),
+                    appointmentView.getOffice().getOfficeName(),
+                    String.valueOf(appointmentView.getSlot().getAppointmentDate()),
+                    String.valueOf(appointmentView.getSlot().getStartTime()),
+                    String.valueOf(appointmentView.getSlot().getEndTime()),
+                    appointmentView.getAppointment().getStatus()
+            );
+            LOGGER.info(() -> "Appointment booking email sent. appointmentId="
+                    + appointmentView.getAppointment().getId()
+                    + ", appointmentNumber=" + appointmentView.getAppointment().getAppointmentNumber());
+            return true;
+        } catch (MessagingException e) {
+            LOGGER.log(Level.WARNING,
+                    "Appointment booking email failed. appointmentId="
+                            + appointmentView.getAppointment().getId()
+                            + ", appointmentNumber=" + appointmentView.getAppointment().getAppointmentNumber()
+                            + ", exceptionType=" + e.getClass().getName()
+                            + ", message=" + e.getMessage(),
+                    e);
+            return false;
+        }
+    }
+
+    private boolean sendCancellationEmail(HttpSession session, AppointmentView appointmentView) {
+
+        if (appointmentView == null) {
+            LOGGER.warning("Appointment cancellation email skipped because appointment details could not be loaded.");
+            return false;
+        }
+
+        String to = getRecipientEmail(session, appointmentView);
+        String fullName = getRecipientName(session, appointmentView);
+
+        try {
+            emailService.sendAppointmentCancelledEmail(
+                    to,
+                    fullName,
+                    appointmentView.getAppointment().getAppointmentNumber(),
+                    appointmentView.getApplication().getApplicationNumber(),
+                    appointmentView.getOffice().getOfficeName(),
+                    String.valueOf(appointmentView.getSlot().getAppointmentDate()),
+                    String.valueOf(appointmentView.getSlot().getStartTime()),
+                    String.valueOf(appointmentView.getSlot().getEndTime())
+            );
+            LOGGER.info(() -> "Appointment cancellation email sent. appointmentId="
+                    + appointmentView.getAppointment().getId()
+                    + ", appointmentNumber=" + appointmentView.getAppointment().getAppointmentNumber());
+            return true;
+        } catch (MessagingException e) {
+            LOGGER.log(Level.WARNING,
+                    "Appointment cancellation email failed. appointmentId="
+                            + appointmentView.getAppointment().getId()
+                            + ", appointmentNumber=" + appointmentView.getAppointment().getAppointmentNumber()
+                            + ", exceptionType=" + e.getClass().getName()
+                            + ", message=" + e.getMessage(),
+                    e);
+            return false;
         }
     }
 
@@ -474,6 +568,22 @@ public class AppointmentServlet extends HttpServlet {
                     e);
             return false;
         }
+    }
+
+    private String getRecipientEmail(HttpSession session, AppointmentView appointmentView) {
+        String to = clean((String) session.getAttribute("email"));
+        if (to.isEmpty() && appointmentView != null && appointmentView.getApplication() != null) {
+            to = clean(appointmentView.getApplication().getEmail());
+        }
+        return to;
+    }
+
+    private String getRecipientName(HttpSession session, AppointmentView appointmentView) {
+        String fullName = clean((String) session.getAttribute("fullName"));
+        if (fullName.isEmpty() && appointmentView != null && appointmentView.getApplication() != null) {
+            fullName = clean(appointmentView.getApplication().getFullName());
+        }
+        return fullName.isEmpty() ? "User" : fullName;
     }
 
     private String formatSchedule(AppointmentSlot slot) {

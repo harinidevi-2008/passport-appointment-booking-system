@@ -4,11 +4,15 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import com.pabs.dao.PassportApplicationDAO;
 import com.pabs.model.PassportApplication;
+import com.pabs.service.EmailService;
 
+import jakarta.mail.MessagingException;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
@@ -20,6 +24,7 @@ import jakarta.servlet.http.HttpSession;
 public class PassportApplicationServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = Logger.getLogger(PassportApplicationServlet.class.getName());
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$");
@@ -29,6 +34,7 @@ public class PassportApplicationServlet extends HttpServlet {
             Pattern.compile("^[0-9]{5,10}$");
 
     private final PassportApplicationDAO applicationDAO = new PassportApplicationDAO();
+    private final EmailService emailService = new EmailService();
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -90,14 +96,38 @@ public class PassportApplicationServlet extends HttpServlet {
         boolean created = applicationDAO.createApplication(application);
 
         if (created) {
+            boolean emailSent = sendApplicationSubmittedEmail(application);
             session.setAttribute("lastApplicationId", application.getId());
             session.setAttribute("lastApplicationNumber", application.getApplicationNumber());
             session.setAttribute("lastApplicationStatus", application.getStatus());
+            session.setAttribute("lastApplicationEmailSent", emailSent);
             response.sendRedirect("application-success.jsp");
         } else {
             request.setAttribute("errorMessage", "Unable to submit your application. Please try again.");
             request.setAttribute("application", application);
             request.getRequestDispatcher("apply-passport.jsp").forward(request, response);
+        }
+    }
+
+    private boolean sendApplicationSubmittedEmail(PassportApplication application) {
+        try {
+            emailService.sendApplicationSubmittedEmail(
+                    application.getEmail(),
+                    application.getFullName(),
+                    application.getApplicationNumber(),
+                    application.getStatus()
+            );
+            LOGGER.info(() -> "Application submission email sent. applicationId="
+                    + application.getId() + ", applicationNumber=" + application.getApplicationNumber());
+            return true;
+        } catch (MessagingException e) {
+            LOGGER.log(Level.WARNING,
+                    "Application submission email failed. applicationId=" + application.getId()
+                            + ", applicationNumber=" + application.getApplicationNumber()
+                            + ", exceptionType=" + e.getClass().getName()
+                            + ", message=" + e.getMessage(),
+                    e);
+            return false;
         }
     }
 

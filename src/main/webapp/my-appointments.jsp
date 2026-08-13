@@ -51,7 +51,15 @@
             </div>
 
             <% if ("1".equals(request.getParameter("cancelled"))) { %>
-                <div class="alert alert-success" role="alert">Appointment cancelled successfully.</div>
+                <% if ("1".equals(request.getParameter("mailError"))) { %>
+                    <div class="alert alert-warning" role="alert">
+                        The appointment was successfully cancelled, but the cancellation email could not be sent.
+                    </div>
+                <% } else { %>
+                    <div class="alert alert-success" role="alert">
+                        Your appointment was cancelled successfully. A cancellation email has been sent to your registered email address.
+                    </div>
+                <% } %>
             <% } %>
 
             <% if ("1".equals(request.getParameter("cancelError"))) { %>

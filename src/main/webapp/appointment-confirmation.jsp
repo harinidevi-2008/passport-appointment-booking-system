@@ -47,6 +47,16 @@
                 <span class="badge text-bg-success status-badge"><%= appointmentView.getAppointment().getStatus() %></span>
             </div>
 
+            <% if ("1".equals(request.getParameter("mailError"))) { %>
+                <div class="alert alert-warning" role="alert">
+                    Your appointment was booked successfully, but the confirmation email could not be sent.
+                </div>
+            <% } else { %>
+                <div class="alert alert-success" role="alert">
+                    Your appointment was booked successfully. A confirmation email has been sent to your registered email address.
+                </div>
+            <% } %>
+
             <div class="details-section">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Application Number</div>
