@@ -15,7 +15,7 @@
         response.sendRedirect("admin-dashboard.jsp");
         return;
     }
-PassportApplication passportApplication = (PassportApplication) request.getAttribute("application");
+    PassportApplication passportApplication = (PassportApplication) request.getAttribute("application");
     
     PassportOffice office = (PassportOffice) request.getAttribute("office");
     LocalDate appointmentDate = (LocalDate) request.getAttribute("appointmentDate");

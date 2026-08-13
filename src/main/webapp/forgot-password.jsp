@@ -29,6 +29,12 @@
                 </div>
             <% } %>
 
+            <% if (request.getAttribute("errorMessage") != null) { %>
+                <div class="alert alert-danger" role="alert">
+                    <%= request.getAttribute("errorMessage") %>
+                </div>
+            <% } %>
+
             <form action="forgot-password" method="post" class="needs-validation" novalidate>
                 <div class="mb-4">
                     <label for="email" class="form-label">Email</label>

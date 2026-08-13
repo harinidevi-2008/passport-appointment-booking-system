@@ -3,6 +3,8 @@ package com.pabs.controller;
 import java.io.IOException;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.pabs.dao.PasswordResetDAO;
 import com.pabs.dao.UserDAO;
@@ -24,6 +26,7 @@ public class ForgotPasswordServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final Logger LOGGER = Logger.getLogger(ForgotPasswordServlet.class.getName());
 
     private final UserDAO userDAO = new UserDAO();
     private final PasswordResetDAO passwordResetDAO = new PasswordResetDAO();
@@ -38,11 +41,11 @@ public class ForgotPasswordServlet extends HttpServlet {
         HttpSession session = request.getSession();
 
         clearResetState(session);
-        session.setAttribute("passwordResetMessage",
-                "If the email address is registered, an OTP has been sent.");
 
         if (!email.isEmpty()) {
+            LOGGER.info(() -> "Password reset requested. emailProvided=true");
             User user = userDAO.findByEmail(email);
+            LOGGER.info(() -> "Password reset user lookup result: found=" + (user != null));
 
             if (user != null) {
                 String otp = generateOtp();
@@ -51,21 +54,44 @@ public class ForgotPasswordServlet extends HttpServlet {
                         PasswordUtil.hashPassword(otp),
                         LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES)
                 );
+                LOGGER.info(() -> "Password reset OTP creation result: success="
+                        + (otpId > 0) + ", otpId=" + otpId + ", userId=" + user.getId());
 
                 if (otpId > 0) {
-                    session.setAttribute("passwordResetUserId", user.getId());
-                    session.setAttribute("passwordResetOtpId", otpId);
-                    session.setAttribute("passwordResetVerified", Boolean.FALSE);
-
                     try {
                         emailService.sendPasswordResetOtp(user.getEmail(), otp);
+                        LOGGER.info(() -> "Password reset OTP email sent successfully. otpId="
+                                + otpId + ", userId=" + user.getId());
+
+                        session.setAttribute("passwordResetUserId", user.getId());
+                        session.setAttribute("passwordResetOtpId", otpId);
+                        session.setAttribute("passwordResetVerified", Boolean.FALSE);
                     } catch (MessagingException e) {
-                        e.printStackTrace();
+                        passwordResetDAO.markUsed(otpId);
+                        clearResetState(session);
+
+                        LOGGER.log(Level.WARNING,
+                                "Password reset OTP email send failed. otpId=" + otpId
+                                        + ", userId=" + user.getId()
+                                        + ", exceptionType=" + e.getClass().getName()
+                                        + ", message=" + e.getMessage(),
+                                e);
+
+                        request.setAttribute("errorMessage",
+                                "Unable to send the OTP email right now. Please check mail configuration or try again later.");
+                        request.getRequestDispatcher("forgot-password.jsp").forward(request, response);
+                        return;
                     }
+                } else {
+                    LOGGER.warning(() -> "Password reset OTP creation failed. userId=" + user.getId());
                 }
             }
+        } else {
+            LOGGER.info(() -> "Password reset requested. emailProvided=false");
         }
 
+        session.setAttribute("passwordResetMessage",
+                "If the email address is registered, an OTP has been sent.");
         response.sendRedirect("verify-otp.jsp");
     }
 
