@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS passport_applications (
     state VARCHAR(50) NOT NULL,
     pincode VARCHAR(10) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'SUBMITTED',
+    review_note TEXT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_passport_applications_user

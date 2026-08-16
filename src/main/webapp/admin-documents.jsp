@@ -47,6 +47,8 @@
         <a class="navbar-brand" href="admin-dashboard.jsp">Passport Appointment Booking System</a>
         <div class="d-flex gap-2">
             <a class="btn btn-outline-light" href="admin-dashboard.jsp">Dashboard</a>
+            <a class="btn btn-outline-light" href="admin-applications">Application Processing</a>
+            <a class="btn btn-outline-light" href="admin-appointments">Appointment Management</a>
             <a class="btn btn-outline-light" href="logout">Logout</a>
         </div>
     </div>

@@ -1,6 +1,18 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.List" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
+<%!
+    private String value(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -75,11 +87,11 @@
                         <tbody>
                         <% for (PassportApplication item : applications) { %>
                             <tr>
-                                <td><strong><%= item.getApplicationNumber() %></strong></td>
-                                <td><%= item.getApplicationType() %></td>
-                                <td><%= item.getPassportMode() %></td>
-                                <td><span class="badge text-bg-success"><%= item.getStatus() %></span></td>
-                                <td><%= item.getCreatedAt() %></td>
+                                <td><strong><%= value(item.getApplicationNumber()) %></strong></td>
+                                <td><%= value(item.getApplicationType()) %></td>
+                                <td><%= value(item.getPassportMode()) %></td>
+                                <td><span class="badge text-bg-success"><%= value(item.getStatus()) %></span></td>
+                                <td><%= value(item.getCreatedAt()) %></td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-2">
                                         <a class="btn btn-sm btn-primary" href="application-details?id=<%= item.getId() %>">View Details</a>

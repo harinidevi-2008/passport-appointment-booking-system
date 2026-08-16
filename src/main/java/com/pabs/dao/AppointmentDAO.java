@@ -16,6 +16,11 @@ import com.pabs.util.DBConnection;
 public class AppointmentDAO {
 
     private static final String ACTIVE_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED'";
+    private static final String EXPIRE_PAST_ACTIVE_APPOINTMENTS =
+            "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "SET a.status='EXPIRED' "
+                    + "WHERE a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) < NOW()";
 
     private static final String SELECT_COLUMNS =
             "id, appointment_number, application_id, user_id, slot_id, status, booked_at, "
@@ -38,8 +43,10 @@ public class AppointmentDAO {
             "SELECT appointment_date, start_time FROM appointment_slots WHERE id=?";
 
     private static final String COUNT_ACTIVE_BOOKINGS_FOR_SLOT =
-            "SELECT COUNT(*) FROM appointments WHERE slot_id=? "
-                    + "AND status IN (" + ACTIVE_APPOINTMENT_STATUSES + ")";
+            "SELECT COUNT(*) FROM appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "WHERE a.slot_id=? "
+                    + "AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) >= NOW()";
 
     private static final String INSERT_APPOINTMENT =
             "INSERT INTO appointments(appointment_number, application_id, user_id, slot_id, status) "
@@ -51,9 +58,17 @@ public class AppointmentDAO {
     private static final String SELECT_BY_ID =
             "SELECT " + SELECT_COLUMNS + " FROM appointments WHERE id=?";
 
+    private static final String SELECT_ALL =
+            "SELECT " + SELECT_COLUMNS + " FROM appointments "
+                    + "ORDER BY created_at DESC";
+
     private static final String SELECT_BY_USER_ID =
             "SELECT " + SELECT_COLUMNS + " FROM appointments WHERE user_id=? "
                     + "ORDER BY created_at DESC";
+
+    private static final String SELECT_LATEST_BY_APPLICATION_ID =
+            "SELECT " + SELECT_COLUMNS + " FROM appointments WHERE application_id=? "
+                    + "ORDER BY created_at DESC LIMIT 1";
 
     private static final String SELECT_BY_ID_FOR_USER =
             "SELECT " + SELECT_COLUMNS + " FROM appointments WHERE id=? AND user_id=?";
@@ -64,8 +79,10 @@ public class AppointmentDAO {
                     + "FOR UPDATE";
 
     private static final String CANCEL_APPOINTMENT =
-            "UPDATE appointments SET status='CANCELLED', cancelled_at=CURRENT_TIMESTAMP "
-                    + "WHERE id=? AND user_id=? AND status IN (" + ACTIVE_APPOINTMENT_STATUSES + ")";
+            "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "SET a.status='CANCELLED', a.cancelled_at=CURRENT_TIMESTAMP "
+                    + "WHERE a.id=? AND a.user_id=? AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.start_time) > NOW()";
 
     private static final String UPDATE_APPOINTMENT_SLOT =
             "UPDATE appointments SET slot_id=?, status='RESCHEDULED' WHERE id=?";
@@ -76,6 +93,7 @@ public class AppointmentDAO {
         try {
             connection = DBConnection.getConnection();
             connection.setAutoCommit(false);
+            expirePastAppointments(connection);
 
             if (!applicationBelongsToUser(connection, applicationId, userId)) {
                 connection.rollback();
@@ -126,15 +144,17 @@ public class AppointmentDAO {
         List<Appointment> appointments = new ArrayList<>();
 
         try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(SELECT_BY_USER_ID)
+                Connection connection = DBConnection.getConnection()
         ) {
+            expirePastAppointments(connection);
 
-            ps.setInt(1, userId);
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_BY_USER_ID)) {
+                ps.setInt(1, userId);
 
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    appointments.add(mapAppointment(rs));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        appointments.add(mapAppointment(rs));
+                    }
                 }
             }
 
@@ -148,16 +168,80 @@ public class AppointmentDAO {
     public Appointment findByIdForUser(int appointmentId, int userId) {
 
         try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(SELECT_BY_ID_FOR_USER)
+                Connection connection = DBConnection.getConnection()
         ) {
+            expirePastAppointments(connection);
 
-            ps.setInt(1, appointmentId);
-            ps.setInt(2, userId);
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_BY_ID_FOR_USER)) {
+                ps.setInt(1, appointmentId);
+                ps.setInt(2, userId);
 
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return mapAppointment(rs);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return mapAppointment(rs);
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public Appointment findById(int appointmentId) {
+
+        try (
+                Connection connection = DBConnection.getConnection()
+        ) {
+            expirePastAppointments(connection);
+            return findById(connection, appointmentId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return null;
+    }
+
+    public List<Appointment> findAllAppointments() {
+        List<Appointment> appointments = new ArrayList<>();
+
+        try (
+                Connection connection = DBConnection.getConnection()
+        ) {
+            expirePastAppointments(connection);
+
+            try (
+                    PreparedStatement ps = connection.prepareStatement(SELECT_ALL);
+                    ResultSet rs = ps.executeQuery()
+            ) {
+                while (rs.next()) {
+                    appointments.add(mapAppointment(rs));
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return appointments;
+    }
+
+    public Appointment findLatestByApplicationId(int applicationId) {
+
+        try (
+                Connection connection = DBConnection.getConnection()
+        ) {
+            expirePastAppointments(connection);
+
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_LATEST_BY_APPLICATION_ID)) {
+                ps.setInt(1, applicationId);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return mapAppointment(rs);
+                    }
                 }
             }
 
@@ -171,6 +255,7 @@ public class AppointmentDAO {
     public Appointment findActiveAppointmentForApplication(int applicationId, int userId) {
 
         try (Connection connection = DBConnection.getConnection()) {
+            expirePastAppointments(connection);
             return findActiveAppointmentForApplication(connection, applicationId, userId);
         } catch (SQLException e) {
             e.printStackTrace();
@@ -182,14 +267,16 @@ public class AppointmentDAO {
     public boolean cancelAppointment(int appointmentId, int userId) {
 
         try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(CANCEL_APPOINTMENT)
+                Connection connection = DBConnection.getConnection()
         ) {
+            expirePastAppointments(connection);
 
-            ps.setInt(1, appointmentId);
-            ps.setInt(2, userId);
+            try (PreparedStatement ps = connection.prepareStatement(CANCEL_APPOINTMENT)) {
+                ps.setInt(1, appointmentId);
+                ps.setInt(2, userId);
 
-            return ps.executeUpdate() > 0;
+                return ps.executeUpdate() > 0;
+            }
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -204,6 +291,7 @@ public class AppointmentDAO {
         try {
             connection = DBConnection.getConnection();
             connection.setAutoCommit(false);
+            expirePastAppointments(connection);
 
             Appointment appointment = lockActiveAppointmentForUser(connection, appointmentId, userId);
             if (appointment == null || appointment.getSlotId() == newSlotId) {
@@ -250,7 +338,18 @@ public class AppointmentDAO {
     public int countActiveBookingsForSlot(int slotId) {
 
         try (Connection connection = DBConnection.getConnection()) {
+            expirePastAppointments(connection);
             return countActiveBookingsForSlot(connection, slotId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return 0;
+    }
+
+    public int expirePastAppointments() {
+        try (Connection connection = DBConnection.getConnection()) {
+            return expirePastAppointments(connection);
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -354,6 +453,12 @@ public class AppointmentDAO {
         }
 
         return 0;
+    }
+
+    private int expirePastAppointments(Connection connection) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(EXPIRE_PAST_ACTIVE_APPOINTMENTS)) {
+            return ps.executeUpdate();
+        }
     }
 
     private int insertAppointment(Connection connection, int applicationId, int userId, int slotId)

@@ -18,6 +18,11 @@ import com.pabs.util.DBConnection;
 public class AppointmentSlotDAO {
 
     private static final String ACTIVE_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED'";
+    private static final String EXPIRE_PAST_ACTIVE_APPOINTMENTS =
+            "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "SET a.status='EXPIRED' "
+                    + "WHERE a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) < NOW()";
     private static final int DEFAULT_SLOT_CAPACITY = 1;
 
     private static final LocalTime[][] STANDARD_SLOT_TIMES = {
@@ -36,6 +41,7 @@ public class AppointmentSlotDAO {
                     + "FROM appointment_slots s "
                     + "LEFT JOIN appointments a ON a.slot_id=s.id "
                     + "AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) >= NOW() "
                     + "WHERE s.office_id=? AND s.appointment_date=? AND s.active=TRUE "
                     + "GROUP BY s.id, s.office_id, s.appointment_date, s.start_time, s.end_time, "
                     + "s.capacity, s.active, s.created_at "
@@ -46,14 +52,17 @@ public class AppointmentSlotDAO {
             "SELECT " + SELECT_COLUMNS + " FROM appointment_slots WHERE id=?";
 
     private static final String COUNT_ACTIVE_BOOKINGS =
-            "SELECT COUNT(*) FROM appointments WHERE slot_id=? "
-                    + "AND status IN (" + ACTIVE_APPOINTMENT_STATUSES + ")";
+            "SELECT COUNT(*) FROM appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "WHERE a.slot_id=? "
+                    + "AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) >= NOW()";
 
     private static final String HAS_AVAILABLE_CAPACITY =
             "SELECT s.capacity, COUNT(a.id) AS active_bookings "
                     + "FROM appointment_slots s "
                     + "LEFT JOIN appointments a ON a.slot_id=s.id "
                     + "AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) >= NOW() "
                     + "WHERE s.id=? AND s.active=TRUE "
                     + "GROUP BY s.id, s.capacity";
 
@@ -109,16 +118,18 @@ public class AppointmentSlotDAO {
         List<AppointmentSlot> slots = new ArrayList<>();
 
         try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(SELECT_AVAILABLE_ACTIVE_SLOTS)
+                Connection connection = DBConnection.getConnection()
         ) {
+            expirePastAppointments(connection);
 
-            ps.setInt(1, officeId);
-            ps.setDate(2, Date.valueOf(appointmentDate));
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_AVAILABLE_ACTIVE_SLOTS)) {
+                ps.setInt(1, officeId);
+                ps.setDate(2, Date.valueOf(appointmentDate));
 
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    slots.add(mapSlot(rs));
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        slots.add(mapSlot(rs));
+                    }
                 }
             }
 
@@ -154,15 +165,17 @@ public class AppointmentSlotDAO {
     public boolean hasAvailableCapacity(int slotId) {
 
         try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(HAS_AVAILABLE_CAPACITY)
+                Connection connection = DBConnection.getConnection()
         ) {
+            expirePastAppointments(connection);
 
-            ps.setInt(1, slotId);
+            try (PreparedStatement ps = connection.prepareStatement(HAS_AVAILABLE_CAPACITY)) {
+                ps.setInt(1, slotId);
 
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt("active_bookings") < rs.getInt("capacity");
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("active_bookings") < rs.getInt("capacity");
+                    }
                 }
             }
 
@@ -176,15 +189,17 @@ public class AppointmentSlotDAO {
     public int countActiveBookingsForSlot(int slotId) {
 
         try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(COUNT_ACTIVE_BOOKINGS)
+                Connection connection = DBConnection.getConnection()
         ) {
+            expirePastAppointments(connection);
 
-            ps.setInt(1, slotId);
+            try (PreparedStatement ps = connection.prepareStatement(COUNT_ACTIVE_BOOKINGS)) {
+                ps.setInt(1, slotId);
 
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt(1);
+                    }
                 }
             }
 
@@ -193,6 +208,12 @@ public class AppointmentSlotDAO {
         }
 
         return 0;
+    }
+
+    private int expirePastAppointments(Connection connection) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(EXPIRE_PAST_ACTIVE_APPOINTMENTS)) {
+            return ps.executeUpdate();
+        }
     }
 
     private boolean lockActiveOffice(Connection connection, int officeId) throws SQLException {

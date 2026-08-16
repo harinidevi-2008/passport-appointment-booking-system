@@ -760,7 +760,12 @@ public class AppointmentServlet extends HttpServlet {
 
         public boolean isCancellable() {
             String status = appointment.getStatus();
-            return "BOOKED".equals(status) || "RESCHEDULED".equals(status);
+            if (!("BOOKED".equals(status) || "RESCHEDULED".equals(status))) {
+                return false;
+            }
+
+            return LocalDateTime.of(slot.getAppointmentDate(), slot.getStartTime())
+                    .isAfter(LocalDateTime.now());
         }
 
         public boolean isReschedulable() {

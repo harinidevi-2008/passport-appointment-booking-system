@@ -1,6 +1,18 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%!
+    private String value(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -57,90 +69,102 @@
                 <div>
                     <p class="portal-kicker mb-2">Application Details</p>
                     <h1>Application Number</h1>
-                    <p class="mb-0"><%= passportApplication.getApplicationNumber() %></p>
+                    <p class="mb-0"><%= value(passportApplication.getApplicationNumber()) %></p>
                 </div>
-                <span class="badge text-bg-success status-badge"><%= passportApplication.getStatus() %></span>
+                <span class="badge text-bg-success status-badge"><%= value(passportApplication.getStatus()) %></span>
             </div>
+
+            <% if ("REJECTED".equals(passportApplication.getStatus())
+                    && passportApplication.getReviewNote() != null
+                    && !passportApplication.getReviewNote().trim().isEmpty()) { %>
+                <div class="alert alert-danger" role="alert">
+                    <strong>Rejection Reason:</strong> <%= value(passportApplication.getReviewNote()) %>
+                </div>
+            <% } %>
 
             <div class="details-section">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Application Number</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getApplicationNumber() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getApplicationNumber()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Application Type</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getApplicationType() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getApplicationType()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Passport Mode</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getPassportMode() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getPassportMode()) %></div>
+                </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Processing Status</div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getStatus()) %></div>
                 </div>
             </div>
 
             <div class="details-section">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Full Name</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getFullName() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getFullName()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">DOB</div>
-                    <div class="col-md-8 detail-value"><%= dob %></div>
+                    <div class="col-md-8 detail-value"><%= value(dob) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Gender</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getGender() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getGender()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Place of Birth</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getPlaceOfBirth() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getPlaceOfBirth()) %></div>
                 </div>
             </div>
 
             <div class="details-section">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Father</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getFatherName() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getFatherName()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Mother</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getMotherName() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getMotherName()) %></div>
                 </div>
             </div>
 
             <div class="details-section">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Phone</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getPhone() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getPhone()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Email</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getEmail() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getEmail()) %></div>
                 </div>
             </div>
 
             <div class="details-section">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Address</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getAddress() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getAddress()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">City</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getCity() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getCity()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">State</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getState() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getState()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Pincode</div>
-                    <div class="col-md-8 detail-value"><%= passportApplication.getPincode() %></div>
+                    <div class="col-md-8 detail-value"><%= value(passportApplication.getPincode()) %></div>
                 </div>
             </div>
 
             <div class="details-section mb-0">
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Submitted On</div>
-                    <div class="col-md-8 detail-value"><%= submittedOn %></div>
+                    <div class="col-md-8 detail-value"><%= value(submittedOn) %></div>
                 </div>
             </div>
 

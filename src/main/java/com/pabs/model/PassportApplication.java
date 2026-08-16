@@ -23,6 +23,7 @@ public class PassportApplication {
     private String state;
     private String pincode;
     private String status;
+    private String reviewNote;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -194,6 +195,14 @@ public class PassportApplication {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getReviewNote() {
+        return reviewNote;
+    }
+
+    public void setReviewNote(String reviewNote) {
+        this.reviewNote = reviewNote;
     }
 
     public Timestamp getCreatedAt() {

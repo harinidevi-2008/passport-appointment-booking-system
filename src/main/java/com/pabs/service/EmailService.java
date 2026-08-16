@@ -158,6 +158,31 @@ public class EmailService {
         sendEmail(to, subject, body);
     }
 
+    public void sendApplicationStatusChangedEmail(
+            String to,
+            String fullName,
+            String applicationNumber,
+            String status,
+            String reviewNote) throws MessagingException {
+
+        String subject = "Passport Application Status Updated";
+        String statusMessage = applicationStatusMessage(status);
+        String body = "Passport Appointment Booking System\n\n"
+                + "Dear " + fullName + ",\n\n"
+                + statusMessage + "\n\n"
+                + "Application Number: " + applicationNumber + "\n"
+                + "Current Status: " + status + "\n";
+
+        if ("REJECTED".equals(status) && !isBlank(reviewNote)) {
+            body += "Review Note: " + reviewNote + "\n";
+        }
+
+        body += "\nYou can view this application under My Applications after logging in to PABS.\n\n"
+                + "Thank you.";
+
+        sendEmail(to, subject, body);
+    }
+
     public void sendRegistrationSuccessEmail(
             String to,
             String fullName) throws MessagingException {
@@ -176,6 +201,22 @@ public class EmailService {
     private String getEnvOrDefault(String name, String defaultValue) {
         String value = System.getenv(name);
         return isBlank(value) ? defaultValue : value;
+    }
+
+    private String applicationStatusMessage(String status) {
+        if ("UNDER_REVIEW".equals(status)) {
+            return "Your passport application is now under review.";
+        }
+        if ("VERIFIED".equals(status)) {
+            return "Your passport application has been verified.";
+        }
+        if ("APPROVED".equals(status)) {
+            return "Your passport application has been approved.";
+        }
+        if ("REJECTED".equals(status)) {
+            return "Your passport application has been rejected.";
+        }
+        return "Your passport application status has been updated.";
     }
 
     private boolean isBlank(String value) {

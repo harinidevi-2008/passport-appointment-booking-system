@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS appointments (
         REFERENCES appointment_slots(id)
         ON DELETE RESTRICT,
     CONSTRAINT chk_appointments_status
-        CHECK (status IN ('BOOKED', 'RESCHEDULED', 'CANCELLED', 'COMPLETED')),
+        CHECK (status IN ('BOOKED', 'RESCHEDULED', 'CANCELLED', 'COMPLETED', 'EXPIRED')),
     CONSTRAINT uq_appointments_appointment_number
         UNIQUE (appointment_number),
     CONSTRAINT uq_appointments_active_application

@@ -26,13 +26,22 @@ public class PassportApplicationDAO {
     private static final String SELECT_BY_ID =
             "SELECT id, application_number, user_id, application_type, passport_mode, full_name, date_of_birth, "
                     + "gender, place_of_birth, father_name, mother_name, phone, email, address, city, state, "
-                    + "pincode, status, created_at, updated_at FROM passport_applications WHERE id=?";
+                    + "pincode, status, review_note, created_at, updated_at FROM passport_applications WHERE id=?";
 
     private static final String SELECT_BY_USER_ID =
             "SELECT id, application_number, user_id, application_type, passport_mode, full_name, date_of_birth, "
                     + "gender, place_of_birth, father_name, mother_name, phone, email, address, city, state, "
-                    + "pincode, status, created_at, updated_at FROM passport_applications WHERE user_id=? "
+                    + "pincode, status, review_note, created_at, updated_at FROM passport_applications WHERE user_id=? "
                     + "ORDER BY created_at DESC";
+
+    private static final String SELECT_ALL =
+            "SELECT id, application_number, user_id, application_type, passport_mode, full_name, date_of_birth, "
+                    + "gender, place_of_birth, father_name, mother_name, phone, email, address, city, state, "
+                    + "pincode, status, review_note, created_at, updated_at FROM passport_applications "
+                    + "ORDER BY created_at DESC";
+
+    private static final String UPDATE_STATUS =
+            "UPDATE passport_applications SET status=?, review_note=? WHERE id=? AND status=?";
 
     public boolean createApplication(PassportApplication application) {
         Connection connection = null;
@@ -156,6 +165,47 @@ public class PassportApplicationDAO {
         return applications;
     }
 
+    public List<PassportApplication> getAllApplications() {
+        List<PassportApplication> applications = new ArrayList<>();
+
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(SELECT_ALL);
+                ResultSet rs = ps.executeQuery()
+        ) {
+
+            while (rs.next()) {
+                applications.add(mapApplication(rs));
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return applications;
+    }
+
+    public boolean updateApplicationStatus(int applicationId, String currentStatus, String status, String reviewNote) {
+
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(UPDATE_STATUS)
+        ) {
+
+            ps.setString(1, status);
+            ps.setString(2, reviewNote);
+            ps.setInt(3, applicationId);
+            ps.setString(4, currentStatus);
+
+            return ps.executeUpdate() == 1;
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
     private String generateApplicationNumber(int id) {
         return String.format("PABS-%d-%05d", Year.now().getValue(), id);
     }
@@ -180,6 +230,7 @@ public class PassportApplicationDAO {
         application.setState(rs.getString("state"));
         application.setPincode(rs.getString("pincode"));
         application.setStatus(rs.getString("status"));
+        application.setReviewNote(rs.getString("review_note"));
         application.setCreatedAt(rs.getTimestamp("created_at"));
         application.setUpdatedAt(rs.getTimestamp("updated_at"));
         return application;
