@@ -20,7 +20,7 @@ public class AppointmentSlotDAO {
     private static final String ACTIVE_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED'";
     private static final String EXPIRE_PAST_ACTIVE_APPOINTMENTS =
             "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
-                    + "SET a.status='EXPIRED' "
+                    + "SET a.status='NO_SHOW' "
                     + "WHERE a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
                     + "AND TIMESTAMP(s.appointment_date, s.end_time) < NOW()";
     private static final int DEFAULT_SLOT_CAPACITY = 1;

@@ -1,4 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.pabs.controller.AppointmentServlet" %>
+<%@ page import="com.pabs.model.Appointment" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
 <%!
@@ -11,6 +13,26 @@
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    private String applicationStatusClass(String status) {
+        if ("REJECTED".equals(status)) {
+            return "text-bg-danger";
+        }
+        if ("VERIFIED".equals(status) || "APPROVED".equals(status) || "PROCESSING".equals(status)
+                || "PRINTING".equals(status) || "DISPATCHED".equals(status) || "DELIVERED".equals(status)) {
+            return "text-bg-success";
+        }
+        if ("UNDER_REVIEW".equals(status)) {
+            return "text-bg-warning";
+        }
+        if ("SUBMITTED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("CANCELLED".equals(status)) {
+            return "text-bg-secondary";
+        }
+        return "text-bg-secondary";
     }
 %>
 <%
@@ -39,6 +61,16 @@
     String submittedOn = passportApplication.getCreatedAt() == null
             ? ""
             : passportApplication.getCreatedAt().toLocalDateTime().format(dateFormatter);
+    Appointment activeAppointment = (Appointment) request.getAttribute("activeAppointment");
+    Appointment latestAppointment = (Appointment) request.getAttribute("latestAppointment");
+    Boolean canBookAppointmentAttribute = (Boolean) request.getAttribute("canBookAppointment");
+    boolean canBookAppointment = Boolean.TRUE.equals(canBookAppointmentAttribute);
+    Boolean hasCompletedAppointmentAttribute = (Boolean) request.getAttribute("hasCompletedAppointment");
+    boolean hasCompletedAppointment = Boolean.TRUE.equals(hasCompletedAppointmentAttribute);
+    Boolean canWithdrawApplicationAttribute = (Boolean) request.getAttribute("canWithdrawApplication");
+    boolean canWithdrawApplication = Boolean.TRUE.equals(canWithdrawApplicationAttribute);
+    boolean latestNoShow = latestAppointment != null && "NO_SHOW".equals(latestAppointment.getStatus());
+    boolean showingWithdrawConfirmation = "1".equals(request.getParameter("confirmWithdraw"));
 %>
 <!DOCTYPE html>
 <html>
@@ -57,6 +89,7 @@
             <a class="nav-link" href="user-dashboard.jsp">Dashboard</a>
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link active" href="my-applications">My Applications</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -71,7 +104,7 @@
                     <h1>Application Number</h1>
                     <p class="mb-0"><%= value(passportApplication.getApplicationNumber()) %></p>
                 </div>
-                <span class="badge text-bg-success status-badge"><%= value(passportApplication.getStatus()) %></span>
+                <span class="badge <%= applicationStatusClass(passportApplication.getStatus()) %> status-badge"><%= value(passportApplication.getStatus()) %></span>
             </div>
 
             <% if ("REJECTED".equals(passportApplication.getStatus())
@@ -79,6 +112,30 @@
                     && !passportApplication.getReviewNote().trim().isEmpty()) { %>
                 <div class="alert alert-danger" role="alert">
                     <strong>Rejection Reason:</strong> <%= value(passportApplication.getReviewNote()) %>
+                </div>
+            <% } %>
+
+            <% if (latestNoShow && canBookAppointment) { %>
+                <div class="alert alert-info" role="alert">
+                    Your previous appointment was marked as No Show. Your application remains verified and you may book a new appointment.
+                </div>
+            <% } %>
+
+            <% if ("1".equals(request.getParameter("withdrawn"))) { %>
+                <div class="alert alert-success" role="alert">
+                    Your application has been withdrawn. Any active appointment has been cancelled and previous appointment history was retained.
+                </div>
+            <% } %>
+
+            <% if ("1".equals(request.getParameter("mailError"))) { %>
+                <div class="alert alert-warning" role="alert">
+                    The application was withdrawn, but the confirmation email could not be sent.
+                </div>
+            <% } %>
+
+            <% if ("1".equals(request.getParameter("withdrawError"))) { %>
+                <div class="alert alert-danger" role="alert">
+                    This application cannot be withdrawn.
                 </div>
             <% } %>
 
@@ -166,6 +223,43 @@
                     <div class="col-md-4 detail-label">Submitted On</div>
                     <div class="col-md-8 detail-value"><%= value(submittedOn) %></div>
                 </div>
+            </div>
+
+            <div class="details-section mt-4">
+                <h2 class="h5 mb-3">Application Actions</h2>
+                <% if (showingWithdrawConfirmation && canWithdrawApplication) { %>
+                    <div class="alert alert-warning" role="alert">
+                        <p class="mb-2"><strong>Are you sure you want to withdraw this application?</strong></p>
+                        <p class="mb-0">
+                            Withdrawing this application will cancel the application and any active appointment associated with it.
+                            Previous appointment history will be retained.
+                        </p>
+                    </div>
+                    <form action="application-details" method="post" class="d-flex flex-column flex-sm-row gap-2">
+                        <input type="hidden" name="action" value="withdraw">
+                        <input type="hidden" name="applicationId" value="<%= passportApplication.getId() %>">
+                        <button type="submit" class="btn btn-danger">Confirm Withdrawal</button>
+                        <a class="btn btn-outline-secondary" href="application-details?id=<%= passportApplication.getId() %>">Keep Application</a>
+                    </form>
+                <% } else { %>
+                    <div class="d-flex flex-column flex-sm-row gap-2">
+                        <% if (canBookAppointment) { %>
+                            <a class="btn btn-outline-primary" href="appointment?action=book&applicationId=<%= passportApplication.getId() %>">Book Appointment</a>
+                        <% } else if (AppointmentServlet.isEligibleForAppointmentBooking(passportApplication) && activeAppointment != null) { %>
+                            <span class="appointment-note align-self-sm-center">Active appointment: <%= value(activeAppointment.getStatus()) %></span>
+                        <% } else if (AppointmentServlet.isEligibleForAppointmentBooking(passportApplication) && hasCompletedAppointment) { %>
+                            <span class="appointment-note align-self-sm-center">Appointment completed. Application is in post-appointment processing.</span>
+                        <% } else { %>
+                            <span class="appointment-note align-self-sm-center"><%= value(AppointmentServlet.appointmentEligibilityMessage(passportApplication)) %></span>
+                        <% } %>
+                        <% if (canWithdrawApplication) { %>
+                            <a class="btn btn-outline-danger" href="application-details?id=<%= passportApplication.getId() %>&confirmWithdraw=1">Withdraw Application</a>
+                        <% } else if ("CANCELLED".equals(passportApplication.getStatus())
+                                && "Citizen withdrew application".equals(passportApplication.getReviewNote())) { %>
+                            <span class="appointment-note align-self-sm-center">Application withdrawn by citizen.</span>
+                        <% } %>
+                    </div>
+                <% } %>
             </div>
 
             <div class="d-flex flex-column flex-sm-row gap-2 mt-4">

@@ -1,5 +1,28 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.pabs.controller.AppointmentServlet.AppointmentView" %>
+<%!
+    private String statusClass(String status) {
+        if ("BOOKED".equals(status)) {
+            return "text-bg-success";
+        }
+        if ("RESCHEDULED".equals(status)) {
+            return "text-bg-primary";
+        }
+        if ("ATTENDED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("COMPLETED".equals(status)) {
+            return "text-bg-dark";
+        }
+        if ("CANCELLED".equals(status)) {
+            return "text-bg-warning";
+        }
+        if ("NO_SHOW".equals(status)) {
+            return "text-bg-secondary";
+        }
+        return "text-bg-dark";
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -17,6 +40,8 @@
         response.sendRedirect("appointment?action=my");
         return;
     }
+    Boolean canBookSameApplicationAttribute = (Boolean) request.getAttribute("canBookSameApplication");
+    boolean canBookSameApplication = Boolean.TRUE.equals(canBookSameApplicationAttribute);
 %>
 <!DOCTYPE html>
 <html>
@@ -36,6 +61,7 @@
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
             <a class="nav-link active" href="appointment?action=my">My Appointments</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -50,7 +76,7 @@
                     <h1><%= appointmentView.getAppointment().getAppointmentNumber() %></h1>
                     <p>Passport Appointment Booking System</p>
                 </div>
-                <span class="badge text-bg-primary status-badge"><%= appointmentView.getAppointment().getStatus() %></span>
+                <span class="badge <%= statusClass(appointmentView.getAppointment().getStatus()) %> status-badge"><%= appointmentView.getAppointment().getStatus() %></span>
             </div>
 
             <% if ("1".equals(request.getParameter("rescheduled"))) { %>
@@ -62,6 +88,12 @@
             <% if ("1".equals(request.getParameter("mailError"))) { %>
                 <div class="alert alert-warning" role="alert">
                     Appointment was rescheduled, but the email notification could not be sent.
+                </div>
+            <% } %>
+
+            <% if ("NO_SHOW".equals(appointmentView.getAppointment().getStatus()) && canBookSameApplication) { %>
+                <div class="alert alert-info" role="alert">
+                    Your previous appointment was marked as No Show. Your application remains verified and you may book a new appointment.
                 </div>
             <% } %>
 
@@ -78,6 +110,10 @@
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Passport Mode</div>
                     <div class="col-md-8 detail-value"><%= appointmentView.getApplication().getPassportMode() %></div>
+                </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Application Status</div>
+                    <div class="col-md-8 detail-value"><%= appointmentView.getApplication().getStatus() %></div>
                 </div>
             </div>
 
@@ -103,6 +139,10 @@
                     <div class="col-md-4 detail-label">Booked At</div>
                     <div class="col-md-8 detail-value"><%= appointmentView.getAppointment().getBookedAt() %></div>
                 </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Status</div>
+                    <div class="col-md-8 detail-value"><%= appointmentView.getAppointment().getStatus() %></div>
+                </div>
             </div>
 
             <div class="form-actions">
@@ -115,6 +155,9 @@
                         <input type="hidden" name="appointmentId" value="<%= appointmentView.getAppointment().getId() %>">
                         <button type="submit" class="btn btn-outline-danger">Cancel Appointment</button>
                     </form>
+                <% } %>
+                <% if (canBookSameApplication) { %>
+                    <a class="btn btn-primary" href="appointment?action=book&applicationId=<%= appointmentView.getApplication().getId() %>">Book Appointment</a>
                 <% } %>
             </div>
         </div>

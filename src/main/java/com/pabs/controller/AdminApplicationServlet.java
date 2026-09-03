@@ -15,6 +15,7 @@ import java.util.logging.Logger;
 import com.pabs.dao.AppointmentDAO;
 import com.pabs.dao.AppointmentSlotDAO;
 import com.pabs.dao.DocumentDAO;
+import com.pabs.dao.EmailNotificationDAO;
 import com.pabs.dao.PassportApplicationDAO;
 import com.pabs.dao.PassportOfficeDAO;
 import com.pabs.model.Appointment;
@@ -22,6 +23,7 @@ import com.pabs.model.AppointmentSlot;
 import com.pabs.model.Document;
 import com.pabs.model.PassportApplication;
 import com.pabs.model.PassportOffice;
+import com.pabs.service.AppointmentNotificationService;
 import com.pabs.service.EmailService;
 
 import jakarta.mail.MessagingException;
@@ -41,18 +43,26 @@ public class AdminApplicationServlet extends HttpServlet {
     private static final String SUBMITTED = "SUBMITTED";
     private static final String UNDER_REVIEW = "UNDER_REVIEW";
     private static final String VERIFIED = "VERIFIED";
+    private static final String PROCESSING = "PROCESSING";
     private static final String APPROVED = "APPROVED";
+    private static final String PRINTING = "PRINTING";
+    private static final String DISPATCHED = "DISPATCHED";
+    private static final String DELIVERED = "DELIVERED";
     private static final String REJECTED = "REJECTED";
+    private static final String CANCELLED = "CANCELLED";
 
     private static final Set<String> ALLOWED_STATUSES =
-            Set.of(SUBMITTED, UNDER_REVIEW, VERIFIED, APPROVED, REJECTED);
+            Set.of(SUBMITTED, UNDER_REVIEW, VERIFIED, PROCESSING, APPROVED,
+                    PRINTING, DISPATCHED, DELIVERED, REJECTED, CANCELLED);
 
     private final PassportApplicationDAO applicationDAO = new PassportApplicationDAO();
     private final DocumentDAO documentDAO = new DocumentDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
     private final AppointmentSlotDAO slotDAO = new AppointmentSlotDAO();
     private final PassportOfficeDAO officeDAO = new PassportOfficeDAO();
+    private final EmailNotificationDAO emailNotificationDAO = new EmailNotificationDAO();
     private final EmailService emailService = new EmailService();
+    private final AppointmentNotificationService appointmentNotificationService = new AppointmentNotificationService();
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -69,6 +79,8 @@ public class AdminApplicationServlet extends HttpServlet {
             response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
+
+        appointmentNotificationService.expirePastAppointmentsAndNotifyNoShow();
 
         String action = clean(request.getParameter("action"));
         if ("details".equals(action)) {
@@ -268,6 +280,12 @@ public class AdminApplicationServlet extends HttpServlet {
         }
 
         if (APPROVED.equals(requestedStatus)) {
+            if (!PROCESSING.equals(application.getStatus())) {
+                return "Application cannot be approved before the applicant's appointment has been completed.";
+            }
+            if (!applicationDAO.hasCompletedAppointment(application.getId())) {
+                return "Application cannot be approved before the applicant's appointment has been completed.";
+            }
             Document document = documentDAO.findByUserId(application.getUserId());
             if (!hasAllRequiredDocuments(document)) {
                 return "All required documents must be uploaded before approving this application.";
@@ -278,19 +296,62 @@ public class AdminApplicationServlet extends HttpServlet {
     }
 
     private boolean sendStatusEmail(PassportApplication application, String status, String reviewNote) {
+        String notificationType = "APPLICATION_" + status;
+        String subject = applicationSubject(status);
         try {
-            emailService.sendApplicationStatusChangedEmail(
-                    application.getEmail(),
-                    application.getFullName(),
-                    application.getApplicationNumber(),
-                    status,
-                    reviewNote
-            );
+            if (UNDER_REVIEW.equals(status)) {
+                emailService.sendApplicationUnderReviewEmail(
+                        application.getEmail(),
+                        application.getFullName(),
+                        application.getApplicationNumber(),
+                        status
+                );
+            } else if (VERIFIED.equals(status)) {
+                emailService.sendApplicationVerifiedEmail(
+                        application.getEmail(),
+                        application.getFullName(),
+                        application.getApplicationNumber(),
+                        status
+                );
+            } else if (APPROVED.equals(status)) {
+                emailService.sendApplicationApprovedEmail(
+                        application.getEmail(),
+                        application.getFullName(),
+                        application.getApplicationNumber(),
+                        status,
+                        appointmentInfo(application)
+                );
+            } else if (PROCESSING.equals(status)
+                    || PRINTING.equals(status)
+                    || DISPATCHED.equals(status)
+                    || DELIVERED.equals(status)) {
+                emailService.sendApplicationStatusTrackingEmail(
+                        application.getEmail(),
+                        application.getFullName(),
+                        application.getApplicationNumber(),
+                        status,
+                        statusMessage(status)
+                );
+            } else if (REJECTED.equals(status)) {
+                emailService.sendApplicationRejectedEmail(
+                        application.getEmail(),
+                        application.getFullName(),
+                        application.getApplicationNumber(),
+                        status,
+                        reviewNote
+                );
+            } else {
+                return true;
+            }
+            recordEmail(application.getUserId(), application.getId(), null, notificationType,
+                    application.getEmail(), subject, true, null);
             LOGGER.info(() -> "Application status email sent. applicationId=" + application.getId()
                     + ", applicationNumber=" + application.getApplicationNumber()
                     + ", status=" + status);
             return true;
         } catch (MessagingException e) {
+            recordEmail(application.getUserId(), application.getId(), null, notificationType,
+                    application.getEmail(), subject, false, e.getMessage());
             LOGGER.log(Level.WARNING,
                     "Application status email failed. applicationId=" + application.getId()
                             + ", applicationNumber=" + application.getApplicationNumber()
@@ -302,6 +363,60 @@ public class AdminApplicationServlet extends HttpServlet {
         }
     }
 
+    private String applicationSubject(String status) {
+        if (UNDER_REVIEW.equals(status)) {
+            return EmailService.SUBJECT_APPLICATION_UNDER_REVIEW;
+        }
+        if (VERIFIED.equals(status)) {
+            return EmailService.SUBJECT_APPLICATION_VERIFIED;
+        }
+        if (APPROVED.equals(status)) {
+            return EmailService.SUBJECT_APPLICATION_APPROVED;
+        }
+        if (PROCESSING.equals(status)) {
+            return EmailService.SUBJECT_APPLICATION_PROCESSING;
+        }
+        if (PRINTING.equals(status)) {
+            return EmailService.SUBJECT_PASSPORT_PRINTING;
+        }
+        if (DISPATCHED.equals(status)) {
+            return EmailService.SUBJECT_PASSPORT_DISPATCHED;
+        }
+        if (DELIVERED.equals(status)) {
+            return EmailService.SUBJECT_PASSPORT_DELIVERED;
+        }
+        if (REJECTED.equals(status)) {
+            return EmailService.SUBJECT_APPLICATION_REJECTED;
+        }
+        return "Passport Application Status Updated";
+    }
+
+    private void recordEmail(Integer userId,
+                             Integer applicationId,
+                             Integer appointmentId,
+                             String notificationType,
+                             String recipientEmail,
+                             String subject,
+                             boolean sent,
+                             String errorMessage) {
+        emailNotificationDAO.record(userId, applicationId, appointmentId, notificationType,
+                recipientEmail, subject, sent, errorMessage);
+    }
+
+    private String appointmentInfo(PassportApplication application) {
+        AdminApplicationView view = buildView(application);
+        if (view.getAppointment() == null || view.getSlot() == null || view.getOffice() == null) {
+            return "You may book an appointment in PABS if appointment booking is available for this application.";
+        }
+
+        return "Appointment " + view.getAppointment().getAppointmentNumber()
+                + " is scheduled at " + view.getOffice().getOfficeName()
+                + " on " + view.getSlot().getAppointmentDate()
+                + " from " + view.getSlot().getStartTime()
+                + " to " + view.getSlot().getEndTime()
+                + ".";
+    }
+
     private Set<String> nextStatuses(String currentStatus) {
         Set<String> statuses = new LinkedHashSet<>();
 
@@ -311,11 +426,35 @@ public class AdminApplicationServlet extends HttpServlet {
             statuses.add(VERIFIED);
             statuses.add(REJECTED);
         } else if (VERIFIED.equals(currentStatus)) {
+            statuses.add(REJECTED);
+        } else if (PROCESSING.equals(currentStatus)) {
             statuses.add(APPROVED);
             statuses.add(REJECTED);
+        } else if (APPROVED.equals(currentStatus)) {
+            statuses.add(PRINTING);
+        } else if (PRINTING.equals(currentStatus)) {
+            statuses.add(DISPATCHED);
+        } else if (DISPATCHED.equals(currentStatus)) {
+            statuses.add(DELIVERED);
         }
 
         return statuses;
+    }
+
+    private String statusMessage(String status) {
+        if (PROCESSING.equals(status)) {
+            return "Your appointment has been completed and your application is now in post-appointment processing.";
+        }
+        if (PRINTING.equals(status)) {
+            return "Your passport has moved to printing.";
+        }
+        if (DISPATCHED.equals(status)) {
+            return "Your passport has been dispatched.";
+        }
+        if (DELIVERED.equals(status)) {
+            return "Your passport has been delivered and the lifecycle is complete.";
+        }
+        return "Your passport application status has been updated.";
     }
 
     private AdminApplicationView buildView(PassportApplication application) {

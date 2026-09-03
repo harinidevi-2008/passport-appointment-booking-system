@@ -51,11 +51,13 @@ CREATE TABLE IF NOT EXISTS appointments (
     status VARCHAR(20) NOT NULL DEFAULT 'BOOKED',
     booked_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     cancelled_at TIMESTAMP NULL,
+    attended_at TIMESTAMP NULL,
+    completed_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     active_application_id INT GENERATED ALWAYS AS (
         CASE
-            WHEN status IN ('BOOKED', 'RESCHEDULED') THEN application_id
+            WHEN status IN ('BOOKED', 'RESCHEDULED', 'ATTENDED') THEN application_id
             ELSE NULL
         END
     ) STORED,
@@ -72,7 +74,7 @@ CREATE TABLE IF NOT EXISTS appointments (
         REFERENCES appointment_slots(id)
         ON DELETE RESTRICT,
     CONSTRAINT chk_appointments_status
-        CHECK (status IN ('BOOKED', 'RESCHEDULED', 'CANCELLED', 'COMPLETED', 'EXPIRED')),
+        CHECK (status IN ('BOOKED', 'RESCHEDULED', 'ATTENDED', 'COMPLETED', 'CANCELLED', 'NO_SHOW')),
     CONSTRAINT uq_appointments_appointment_number
         UNIQUE (appointment_number),
     CONSTRAINT uq_appointments_active_application

@@ -16,23 +16,41 @@ import com.pabs.util.DBConnection;
 public class AppointmentDAO {
 
     private static final String ACTIVE_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED'";
+    private static final String OPEN_APPLICATION_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED', 'ATTENDED'";
     private static final String EXPIRE_PAST_ACTIVE_APPOINTMENTS =
             "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
-                    + "SET a.status='EXPIRED' "
+                    + "SET a.status='NO_SHOW' "
                     + "WHERE a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
                     + "AND TIMESTAMP(s.appointment_date, s.end_time) < NOW()";
 
+    private static final String SELECT_EXPIRED_ACTIVE_APPOINTMENTS =
+            "SELECT a.id, a.appointment_number, a.application_id, a.user_id, a.slot_id, a.status, "
+                    + "a.booked_at, a.cancelled_at, a.attended_at, a.completed_at, a.created_at, a.updated_at "
+                    + "FROM appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "WHERE a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) < NOW() "
+                    + "FOR UPDATE";
+
+    private static final String EXPIRE_APPOINTMENT_BY_ID =
+            "UPDATE appointments SET status='NO_SHOW' WHERE id=? AND status IN ("
+                    + ACTIVE_APPOINTMENT_STATUSES + ")";
+
     private static final String SELECT_COLUMNS =
             "id, appointment_number, application_id, user_id, slot_id, status, booked_at, "
-                    + "cancelled_at, created_at, updated_at";
+                    + "cancelled_at, attended_at, completed_at, created_at, updated_at";
 
-    private static final String VERIFY_APPLICATION_OWNERSHIP =
-            "SELECT id FROM passport_applications WHERE id=? AND user_id=?";
+    private static final String VERIFY_APPLICATION_ELIGIBILITY =
+            "SELECT pa.id FROM passport_applications pa "
+                    + "WHERE pa.id=? AND pa.user_id=? AND pa.status='VERIFIED' "
+                    + "AND NOT EXISTS ("
+                    + "SELECT 1 FROM appointments completed "
+                    + "WHERE completed.application_id=pa.id AND completed.status='COMPLETED'"
+                    + ")";
 
     private static final String FIND_ACTIVE_FOR_APPLICATION =
             "SELECT " + SELECT_COLUMNS + " FROM appointments "
                     + "WHERE application_id=? AND user_id=? "
-                    + "AND status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND status IN (" + OPEN_APPLICATION_APPOINTMENT_STATUSES + ") "
                     + "ORDER BY booked_at DESC LIMIT 1";
 
     private static final String LOCK_ACTIVE_SLOT =
@@ -70,6 +88,9 @@ public class AppointmentDAO {
             "SELECT " + SELECT_COLUMNS + " FROM appointments WHERE application_id=? "
                     + "ORDER BY created_at DESC LIMIT 1";
 
+    private static final String HAS_COMPLETED_FOR_APPLICATION =
+            "SELECT id FROM appointments WHERE application_id=? AND user_id=? AND status='COMPLETED' LIMIT 1";
+
     private static final String SELECT_BY_ID_FOR_USER =
             "SELECT " + SELECT_COLUMNS + " FROM appointments WHERE id=? AND user_id=?";
 
@@ -87,6 +108,25 @@ public class AppointmentDAO {
     private static final String UPDATE_APPOINTMENT_SLOT =
             "UPDATE appointments SET slot_id=?, status='RESCHEDULED' WHERE id=?";
 
+    private static final String MARK_ATTENDED =
+            "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
+                    + "JOIN passport_applications pa ON pa.id=a.application_id "
+                    + "SET a.status='ATTENDED', a.attended_at=CURRENT_TIMESTAMP "
+                    + "WHERE a.id=? AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND pa.status='VERIFIED' "
+                    + "AND TIMESTAMP(s.appointment_date, s.start_time) <= DATE_ADD(NOW(), INTERVAL 15 MINUTE) "
+                    + "AND TIMESTAMP(s.appointment_date, s.end_time) > NOW()";
+
+    private static final String MARK_COMPLETED =
+            "UPDATE appointments SET status='COMPLETED', completed_at=CURRENT_TIMESTAMP "
+                    + "WHERE id=? AND status='ATTENDED'";
+
+    private static final String MOVE_APPLICATION_TO_PROCESSING_AFTER_COMPLETED_APPOINTMENT =
+            "UPDATE passport_applications pa "
+                    + "JOIN appointments a ON a.application_id=pa.id "
+                    + "SET pa.status='PROCESSING', pa.review_note=NULL "
+                    + "WHERE a.id=? AND a.status='COMPLETED' AND pa.status='VERIFIED'";
+
     public Appointment createAppointment(int applicationId, int userId, int slotId) {
         Connection connection = null;
 
@@ -95,7 +135,7 @@ public class AppointmentDAO {
             connection.setAutoCommit(false);
             expirePastAppointments(connection);
 
-            if (!applicationBelongsToUser(connection, applicationId, userId)) {
+            if (!applicationIsEligibleForAppointment(connection, applicationId, userId)) {
                 connection.rollback();
                 return null;
             }
@@ -264,6 +304,26 @@ public class AppointmentDAO {
         return null;
     }
 
+    public boolean hasCompletedAppointmentForApplication(int applicationId, int userId) {
+        try (Connection connection = DBConnection.getConnection()) {
+            expirePastAppointments(connection);
+
+            try (PreparedStatement ps = connection.prepareStatement(HAS_COMPLETED_FOR_APPLICATION)) {
+                ps.setInt(1, applicationId);
+                ps.setInt(2, userId);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    return rs.next();
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
     public boolean cancelAppointment(int appointmentId, int userId) {
 
         try (
@@ -335,6 +395,63 @@ public class AppointmentDAO {
         return null;
     }
 
+    public boolean markAttended(int appointmentId) {
+
+        try (
+                Connection connection = DBConnection.getConnection()
+        ) {
+            expirePastAppointments(connection);
+
+            try (PreparedStatement ps = connection.prepareStatement(MARK_ATTENDED)) {
+                ps.setInt(1, appointmentId);
+                return ps.executeUpdate() > 0;
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    public boolean markCompleted(int appointmentId) {
+        Connection connection = null;
+
+        try {
+            connection = DBConnection.getConnection();
+            connection.setAutoCommit(false);
+            expirePastAppointments(connection);
+
+            try (PreparedStatement ps = connection.prepareStatement(MARK_COMPLETED)) {
+                ps.setInt(1, appointmentId);
+                if (ps.executeUpdate() != 1) {
+                    connection.rollback();
+                    return false;
+                }
+            }
+
+            try (PreparedStatement ps =
+                         connection.prepareStatement(MOVE_APPLICATION_TO_PROCESSING_AFTER_COMPLETED_APPOINTMENT)) {
+                ps.setInt(1, appointmentId);
+                if (ps.executeUpdate() != 1) {
+                    connection.rollback();
+                    return false;
+                }
+            }
+
+            connection.commit();
+            return true;
+
+        } catch (SQLException e) {
+            rollbackQuietly(connection);
+            e.printStackTrace();
+        } finally {
+            closeQuietly(connection);
+        }
+
+        return false;
+    }
+
     public int countActiveBookingsForSlot(int slotId) {
 
         try (Connection connection = DBConnection.getConnection()) {
@@ -357,10 +474,57 @@ public class AppointmentDAO {
         return 0;
     }
 
-    private boolean applicationBelongsToUser(Connection connection, int applicationId, int userId)
+    public List<Appointment> expirePastAppointmentsAndReturnExpired() {
+        List<Appointment> expiredAppointments = new ArrayList<>();
+        Connection connection = null;
+
+        try {
+            connection = DBConnection.getConnection();
+            connection.setAutoCommit(false);
+
+            try (
+                    PreparedStatement selectPs = connection.prepareStatement(SELECT_EXPIRED_ACTIVE_APPOINTMENTS);
+                    ResultSet rs = selectPs.executeQuery()
+            ) {
+                while (rs.next()) {
+                    expiredAppointments.add(mapAppointment(rs));
+                }
+            }
+
+            if (expiredAppointments.isEmpty()) {
+                connection.commit();
+                return expiredAppointments;
+            }
+
+            try (PreparedStatement updatePs = connection.prepareStatement(EXPIRE_APPOINTMENT_BY_ID)) {
+                for (Appointment appointment : expiredAppointments) {
+                    updatePs.setInt(1, appointment.getId());
+                    updatePs.addBatch();
+                }
+                updatePs.executeBatch();
+            }
+
+            for (Appointment appointment : expiredAppointments) {
+                appointment.setStatus("NO_SHOW");
+            }
+
+            connection.commit();
+            return expiredAppointments;
+
+        } catch (SQLException e) {
+            rollbackQuietly(connection);
+            e.printStackTrace();
+        } finally {
+            closeQuietly(connection);
+        }
+
+        return new ArrayList<>();
+    }
+
+    private boolean applicationIsEligibleForAppointment(Connection connection, int applicationId, int userId)
             throws SQLException {
 
-        try (PreparedStatement ps = connection.prepareStatement(VERIFY_APPLICATION_OWNERSHIP)) {
+        try (PreparedStatement ps = connection.prepareStatement(VERIFY_APPLICATION_ELIGIBILITY)) {
             ps.setInt(1, applicationId);
             ps.setInt(2, userId);
 
@@ -536,6 +700,8 @@ public class AppointmentDAO {
         appointment.setStatus(rs.getString("status"));
         appointment.setBookedAt(rs.getTimestamp("booked_at"));
         appointment.setCancelledAt(rs.getTimestamp("cancelled_at"));
+        appointment.setAttendedAt(rs.getTimestamp("attended_at"));
+        appointment.setCompletedAt(rs.getTimestamp("completed_at"));
         appointment.setCreatedAt(rs.getTimestamp("created_at"));
         appointment.setUpdatedAt(rs.getTimestamp("updated_at"));
         return appointment;

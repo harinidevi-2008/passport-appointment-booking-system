@@ -3,12 +3,17 @@ package com.pabs.controller;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
+import com.pabs.dao.AppointmentDAO;
+import com.pabs.dao.EmailNotificationDAO;
 import com.pabs.dao.PassportApplicationDAO;
+import com.pabs.model.Appointment;
 import com.pabs.model.PassportApplication;
 import com.pabs.service.EmailService;
 
@@ -32,8 +37,11 @@ public class PassportApplicationServlet extends HttpServlet {
             Pattern.compile("^\\+?[0-9]{10,15}$");
     private static final Pattern PINCODE_PATTERN =
             Pattern.compile("^[0-9]{5,10}$");
+    private static final String WITHDRAWAL_REVIEW_NOTE = "Citizen withdrew application";
 
     private final PassportApplicationDAO applicationDAO = new PassportApplicationDAO();
+    private final AppointmentDAO appointmentDAO = new AppointmentDAO();
+    private final EmailNotificationDAO emailNotificationDAO = new EmailNotificationDAO();
     private final EmailService emailService = new EmailService();
 
     @Override
@@ -58,6 +66,12 @@ public class PassportApplicationServlet extends HttpServlet {
             int userId = (Integer) session.getAttribute("userId");
             List<PassportApplication> applications = applicationDAO.getApplicationsByUserId(userId);
             request.setAttribute("applications", applications);
+            request.setAttribute("activeAppointmentByApplicationId",
+                    activeAppointmentByApplicationId(applications, userId));
+            request.setAttribute("latestAppointmentByApplicationId",
+                    latestAppointmentByApplicationId(applications));
+            request.setAttribute("completedAppointmentByApplicationId",
+                    completedAppointmentByApplicationId(applications, userId));
             request.getRequestDispatcher("my-applications.jsp").forward(request, response);
             return;
         }
@@ -75,6 +89,12 @@ public class PassportApplicationServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         if (!isLoggedInUser(session)) {
             redirectBySession(session, response);
+            return;
+        }
+
+        if ("/application-details".equals(request.getServletPath())
+                && "withdraw".equals(clean(request.getParameter("action")))) {
+            withdrawApplication(request, response, session);
             return;
         }
 
@@ -115,12 +135,20 @@ public class PassportApplicationServlet extends HttpServlet {
                     application.getEmail(),
                     application.getFullName(),
                     application.getApplicationNumber(),
+                    application.getApplicationType(),
+                    java.time.LocalDate.now(),
                     application.getStatus()
             );
+            recordEmail(application.getUserId(), application.getId(), null,
+                    "APPLICATION_SUBMITTED", application.getEmail(),
+                    EmailService.SUBJECT_APPLICATION_SUBMITTED, true, null);
             LOGGER.info(() -> "Application submission email sent. applicationId="
                     + application.getId() + ", applicationNumber=" + application.getApplicationNumber());
             return true;
         } catch (MessagingException e) {
+            recordEmail(application.getUserId(), application.getId(), null,
+                    "APPLICATION_SUBMITTED", application.getEmail(),
+                    EmailService.SUBJECT_APPLICATION_SUBMITTED, false, e.getMessage());
             LOGGER.log(Level.WARNING,
                     "Application submission email failed. applicationId=" + application.getId()
                             + ", applicationNumber=" + application.getApplicationNumber()
@@ -129,6 +157,45 @@ public class PassportApplicationServlet extends HttpServlet {
                     e);
             return false;
         }
+    }
+
+    private boolean sendApplicationWithdrawnEmail(PassportApplication application) {
+        try {
+            emailService.sendApplicationWithdrawnEmail(
+                    application.getEmail(),
+                    application.getFullName(),
+                    application.getApplicationNumber()
+            );
+            recordEmail(application.getUserId(), application.getId(), null,
+                    "APPLICATION_WITHDRAWN", application.getEmail(),
+                    EmailService.SUBJECT_APPLICATION_WITHDRAWN, true, null);
+            LOGGER.info(() -> "Application withdrawal email sent. applicationId="
+                    + application.getId() + ", applicationNumber=" + application.getApplicationNumber());
+            return true;
+        } catch (MessagingException e) {
+            recordEmail(application.getUserId(), application.getId(), null,
+                    "APPLICATION_WITHDRAWN", application.getEmail(),
+                    EmailService.SUBJECT_APPLICATION_WITHDRAWN, false, e.getMessage());
+            LOGGER.log(Level.WARNING,
+                    "Application withdrawal email failed. applicationId=" + application.getId()
+                            + ", applicationNumber=" + application.getApplicationNumber()
+                            + ", exceptionType=" + e.getClass().getName()
+                            + ", message=" + e.getMessage(),
+                    e);
+            return false;
+        }
+    }
+
+    private void recordEmail(Integer userId,
+                             Integer applicationId,
+                             Integer appointmentId,
+                             String notificationType,
+                             String recipientEmail,
+                             String subject,
+                             boolean sent,
+                             String errorMessage) {
+        emailNotificationDAO.record(userId, applicationId, appointmentId, notificationType,
+                recipientEmail, subject, sent, errorMessage);
     }
 
     private void showApplicationDetails(HttpServletRequest request,
@@ -158,7 +225,107 @@ public class PassportApplicationServlet extends HttpServlet {
         }
 
         request.setAttribute("application", application);
+        Appointment activeAppointment = appointmentDAO.findActiveAppointmentForApplication(applicationId, userId);
+        Appointment latestAppointment = appointmentDAO.findLatestByApplicationId(applicationId);
+        request.setAttribute("activeAppointment", activeAppointment);
+        request.setAttribute("latestAppointment", latestAppointment);
+        boolean hasCompletedAppointment = appointmentDAO.hasCompletedAppointmentForApplication(applicationId, userId);
+        request.setAttribute("hasCompletedAppointment", hasCompletedAppointment);
+        request.setAttribute("canBookAppointment",
+                AppointmentServlet.isEligibleForAppointmentBooking(application)
+                        && activeAppointment == null
+                        && !hasCompletedAppointment);
+        request.setAttribute("canWithdrawApplication", isWithdrawable(application));
         request.getRequestDispatcher("application-details.jsp").forward(request, response);
+    }
+
+    private void withdrawApplication(HttpServletRequest request,
+                                     HttpServletResponse response,
+                                     HttpSession session)
+            throws IOException {
+
+        Integer applicationId = parseInt(request.getParameter("applicationId"));
+        if (applicationId == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        int userId = (Integer) session.getAttribute("userId");
+        PassportApplication application = applicationDAO.getApplicationById(applicationId);
+        if (application == null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+
+        if (application.getUserId() != userId) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
+        if (!isWithdrawable(application)) {
+            response.sendRedirect("application-details?id=" + applicationId + "&withdrawError=1");
+            return;
+        }
+
+        boolean withdrawn = applicationDAO.withdrawApplication(applicationId, userId, WITHDRAWAL_REVIEW_NOTE);
+        if (!withdrawn) {
+            response.sendRedirect("application-details?id=" + applicationId + "&withdrawError=1");
+            return;
+        }
+
+        boolean emailSent = sendApplicationWithdrawnEmail(application);
+        String redirectUrl = "application-details?id=" + applicationId + "&withdrawn=1";
+        if (!emailSent) {
+            redirectUrl += "&mailError=1";
+        }
+        response.sendRedirect(redirectUrl);
+    }
+
+    private Map<Integer, Appointment> activeAppointmentByApplicationId(
+            List<PassportApplication> applications, int userId) {
+
+        Map<Integer, Appointment> appointmentsByApplicationId = new HashMap<>();
+        for (PassportApplication application : applications) {
+            Appointment appointment = appointmentDAO.findActiveAppointmentForApplication(application.getId(), userId);
+            if (appointment != null) {
+                appointmentsByApplicationId.put(application.getId(), appointment);
+            }
+        }
+        return appointmentsByApplicationId;
+    }
+
+    private Map<Integer, Appointment> latestAppointmentByApplicationId(List<PassportApplication> applications) {
+        Map<Integer, Appointment> appointmentsByApplicationId = new HashMap<>();
+        for (PassportApplication application : applications) {
+            Appointment appointment = appointmentDAO.findLatestByApplicationId(application.getId());
+            if (appointment != null) {
+                appointmentsByApplicationId.put(application.getId(), appointment);
+            }
+        }
+        return appointmentsByApplicationId;
+    }
+
+    private Map<Integer, Boolean> completedAppointmentByApplicationId(
+            List<PassportApplication> applications, int userId) {
+
+        Map<Integer, Boolean> completedAppointmentsByApplicationId = new HashMap<>();
+        for (PassportApplication application : applications) {
+            if (appointmentDAO.hasCompletedAppointmentForApplication(application.getId(), userId)) {
+                completedAppointmentsByApplicationId.put(application.getId(), Boolean.TRUE);
+            }
+        }
+        return completedAppointmentsByApplicationId;
+    }
+
+    public static boolean isWithdrawable(PassportApplication application) {
+        if (application == null) {
+            return false;
+        }
+
+        String status = application.getStatus();
+        return "SUBMITTED".equals(status)
+                || "UNDER_REVIEW".equals(status)
+                || "VERIFIED".equals(status);
     }
 
     private PassportApplication buildApplication(HttpServletRequest request, HttpSession session) {
@@ -240,6 +407,14 @@ public class PassportApplicationServlet extends HttpServlet {
             response.sendRedirect("admin-dashboard.jsp");
         } else {
             response.sendRedirect("login.jsp");
+        }
+    }
+
+    private Integer parseInt(String value) {
+        try {
+            return isBlank(value) ? null : Integer.valueOf(value);
+        } catch (NumberFormatException e) {
+            return null;
         }
     }
 

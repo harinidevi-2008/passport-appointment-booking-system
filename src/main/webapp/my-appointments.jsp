@@ -1,6 +1,29 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.util.List" %>
 <%@ page import="com.pabs.controller.AppointmentServlet.AppointmentView" %>
+<%!
+    private String statusClass(String status) {
+        if ("BOOKED".equals(status)) {
+            return "text-bg-success";
+        }
+        if ("RESCHEDULED".equals(status)) {
+            return "text-bg-primary";
+        }
+        if ("ATTENDED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("COMPLETED".equals(status)) {
+            return "text-bg-dark";
+        }
+        if ("CANCELLED".equals(status)) {
+            return "text-bg-warning";
+        }
+        if ("NO_SHOW".equals(status)) {
+            return "text-bg-secondary";
+        }
+        return "text-bg-dark";
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -34,6 +57,7 @@
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
             <a class="nav-link active" href="appointment?action=my">My Appointments</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -97,7 +121,7 @@
                                 <td><%= item.getOffice().getOfficeName() %></td>
                                 <td><%= item.getSlot().getAppointmentDate() %></td>
                                 <td><%= item.getSlot().getStartTime() %> - <%= item.getSlot().getEndTime() %></td>
-                                <td><span class="badge text-bg-primary"><%= item.getAppointment().getStatus() %></span></td>
+                                <td><span class="badge <%= statusClass(item.getAppointment().getStatus()) %>"><%= item.getAppointment().getStatus() %></span></td>
                                 <td>
                                     <div class="d-flex flex-wrap gap-2">
                                         <a class="btn btn-sm btn-primary" href="appointment?action=details&id=<%= item.getAppointment().getId() %>">View Details</a>

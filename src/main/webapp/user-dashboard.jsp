@@ -24,6 +24,7 @@
             <a class="nav-link" href="my-applications">My Applications</a>
             <a class="nav-link" href="documents">Upload Documents</a>
             <a class="nav-link" href="appointment?action=my">My Appointments</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -68,6 +69,14 @@
                     <h2>Appointments</h2>
                     <p>Book and manage passport appointments.</p>
                     <a class="btn btn-primary btn-lg mt-auto" href="appointment?action=my">My Appointments</a>
+                </div>
+            </div>
+            <div class="col-lg-3">
+                <div class="service-card h-100">
+                    <div class="service-icon">P</div>
+                    <h2>My Profile</h2>
+                    <p>View and update your account information.</p>
+                    <a class="btn btn-primary btn-lg mt-auto" href="profile">Open Profile</a>
                 </div>
             </div>
         </div>

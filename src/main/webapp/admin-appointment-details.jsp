@@ -19,10 +19,16 @@
         if ("RESCHEDULED".equals(status)) {
             return "text-bg-primary";
         }
+        if ("ATTENDED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("COMPLETED".equals(status)) {
+            return "text-bg-dark";
+        }
         if ("CANCELLED".equals(status)) {
             return "text-bg-warning";
         }
-        if ("EXPIRED".equals(status)) {
+        if ("NO_SHOW".equals(status)) {
             return "text-bg-secondary";
         }
         return "text-bg-dark";
@@ -46,6 +52,8 @@
         response.sendRedirect("admin-appointments");
         return;
     }
+    String statusUpdated = request.getParameter("statusUpdated");
+    String statusError = request.getParameter("statusError");
 %>
 <!DOCTYPE html>
 <html>
@@ -82,9 +90,21 @@
                 </span>
             </div>
 
-            <% if ("EXPIRED".equals(appointmentView.getAppointment().getStatus())) { %>
+            <% if ("1".equals(statusUpdated)) { %>
+                <div class="alert alert-success" role="alert">
+                    Appointment status was updated successfully.
+                </div>
+            <% } %>
+
+            <% if ("1".equals(statusError)) { %>
+                <div class="alert alert-danger" role="alert">
+                    Unable to update appointment status. Please check the current status and attendance time window.
+                </div>
+            <% } %>
+
+            <% if ("NO_SHOW".equals(appointmentView.getAppointment().getStatus())) { %>
                 <div class="alert alert-secondary" role="alert">
-                    This appointment's scheduled end time has passed and it is retained as history.
+                    This appointment's scheduled end time has passed without attendance and it is marked as NO_SHOW.
                 </div>
             <% } %>
 
@@ -106,6 +126,14 @@
                     <div class="col-md-4 detail-label">Updated Date</div>
                     <div class="col-md-8 detail-value"><%= value(appointmentView.getAppointment().getUpdatedAt()) %></div>
                 </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Attended At</div>
+                    <div class="col-md-8 detail-value"><%= value(appointmentView.getAppointment().getAttendedAt()) %></div>
+                </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Completed At</div>
+                    <div class="col-md-8 detail-value"><%= value(appointmentView.getAppointment().getCompletedAt()) %></div>
+                </div>
             </div>
 
             <div class="details-section">
@@ -113,6 +141,10 @@
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Application Number</div>
                     <div class="col-md-8 detail-value"><%= value(appointmentView.getApplication().getApplicationNumber()) %></div>
+                </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Application Status</div>
+                    <div class="col-md-8 detail-value"><%= value(appointmentView.getApplication().getStatus()) %></div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-4 detail-label">Applicant</div>
@@ -146,6 +178,22 @@
 
             <div class="form-actions">
                 <a class="btn btn-outline-secondary" href="admin-appointments">Back to Appointments</a>
+                <% if (appointmentView.isAttendanceMarkAllowed()) { %>
+                    <form action="admin-appointments" method="post" class="m-0">
+                        <input type="hidden" name="action" value="markAttended">
+                        <input type="hidden" name="appointmentId" value="<%= appointmentView.getAppointment().getId() %>">
+                        <button type="submit" class="btn btn-primary">Mark as Attended</button>
+                    </form>
+                <% } %>
+                <% if (appointmentView.isCompletionMarkAllowed()) { %>
+                    <form action="admin-appointments" method="post" class="m-0">
+                        <input type="hidden" name="action" value="markCompleted">
+                        <input type="hidden" name="appointmentId" value="<%= appointmentView.getAppointment().getId() %>">
+                        <button type="submit" class="btn btn-success">Mark as Completed</button>
+                    </form>
+                <% } else if ("ATTENDED".equals(appointmentView.getAppointment().getStatus())) { %>
+                    <span class="appointment-note align-self-center">Completion requires the related application to be VERIFIED.</span>
+                <% } %>
             </div>
         </div>
     </div>

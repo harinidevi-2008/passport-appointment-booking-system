@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.time.LocalDate" %>
 <%@ page import="java.util.List" %>
+<%@ page import="com.pabs.controller.AppointmentServlet" %>
 <%@ page import="com.pabs.controller.AppointmentServlet.AppointmentSlotView" %>
 <%@ page import="com.pabs.controller.AppointmentServlet.AppointmentView" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
@@ -43,6 +44,7 @@
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
             <a class="nav-link active" href="appointment?action=my">My Appointments</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -68,7 +70,7 @@
                 <% } %>
                 <div class="row detail-row">
                     <div class="col-md-3 detail-label">Application</div>
-                    <div class="col-md-9 detail-value"><%= passportApplication.getApplicationNumber() %></div>
+                    <div class="col-md-9 detail-value"><%= passportApplication.getApplicationNumber() %> (<%= passportApplication.getStatus() %>)</div>
                 </div>
                 <div class="row detail-row">
                     <div class="col-md-3 detail-label">Office</div>
@@ -80,7 +82,11 @@
                 </div>
             </div>
 
-            <% if (slotViews == null || slotViews.isEmpty()) { %>
+            <% if (!rescheduleMode && !AppointmentServlet.isEligibleForAppointmentBooking(passportApplication)) { %>
+                <div class="alert alert-warning" role="alert">
+                    <%= AppointmentServlet.appointmentEligibilityMessage(passportApplication) %>
+                </div>
+            <% } else if (slotViews == null || slotViews.isEmpty()) { %>
                 <div class="empty-state">
                     <p class="mb-3">No available appointment slots were found for the selected office and date.</p>
                     <a class="btn btn-primary" href="<%= rescheduleMode ? "appointment?action=reschedule&appointmentId=" + appointmentView.getAppointment().getId() : "appointment?action=book" %>">Choose Another Date</a>

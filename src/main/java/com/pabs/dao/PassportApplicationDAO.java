@@ -43,6 +43,22 @@ public class PassportApplicationDAO {
     private static final String UPDATE_STATUS =
             "UPDATE passport_applications SET status=?, review_note=? WHERE id=? AND status=?";
 
+    private static final String HAS_COMPLETED_APPOINTMENT =
+            "SELECT id FROM appointments WHERE application_id=? AND status='COMPLETED' LIMIT 1";
+
+    private static final String LOCK_WITHDRAWABLE_APPLICATION_FOR_USER =
+            "SELECT id FROM passport_applications "
+                    + "WHERE id=? AND user_id=? AND status IN ('SUBMITTED', 'UNDER_REVIEW', 'VERIFIED') "
+                    + "FOR UPDATE";
+
+    private static final String WITHDRAW_APPLICATION =
+            "UPDATE passport_applications SET status='CANCELLED', review_note=? "
+                    + "WHERE id=? AND user_id=? AND status IN ('SUBMITTED', 'UNDER_REVIEW', 'VERIFIED')";
+
+    private static final String CANCEL_ACTIVE_APPOINTMENTS_FOR_WITHDRAWN_APPLICATION =
+            "UPDATE appointments SET status='CANCELLED', cancelled_at=CURRENT_TIMESTAMP "
+                    + "WHERE application_id=? AND user_id=? AND status IN ('BOOKED', 'RESCHEDULED', 'ATTENDED')";
+
     public boolean createApplication(PassportApplication application) {
         Connection connection = null;
 
@@ -201,6 +217,74 @@ public class PassportApplicationDAO {
 
         } catch (SQLException e) {
             e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    public boolean hasCompletedAppointment(int applicationId) {
+        try (
+                Connection connection = DBConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(HAS_COMPLETED_APPOINTMENT)
+        ) {
+            ps.setInt(1, applicationId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+
+    public boolean withdrawApplication(int applicationId, int userId, String reviewNote) {
+        Connection connection = null;
+
+        try {
+            connection = DBConnection.getConnection();
+            connection.setAutoCommit(false);
+
+            try (PreparedStatement lockPs = connection.prepareStatement(LOCK_WITHDRAWABLE_APPLICATION_FOR_USER)) {
+                lockPs.setInt(1, applicationId);
+                lockPs.setInt(2, userId);
+
+                try (ResultSet rs = lockPs.executeQuery()) {
+                    if (!rs.next()) {
+                        connection.rollback();
+                        return false;
+                    }
+                }
+            }
+
+            try (PreparedStatement cancelAppointmentsPs =
+                         connection.prepareStatement(CANCEL_ACTIVE_APPOINTMENTS_FOR_WITHDRAWN_APPLICATION)) {
+                cancelAppointmentsPs.setInt(1, applicationId);
+                cancelAppointmentsPs.setInt(2, userId);
+                cancelAppointmentsPs.executeUpdate();
+            }
+
+            try (PreparedStatement withdrawPs = connection.prepareStatement(WITHDRAW_APPLICATION)) {
+                withdrawPs.setString(1, reviewNote);
+                withdrawPs.setInt(2, applicationId);
+                withdrawPs.setInt(3, userId);
+
+                if (withdrawPs.executeUpdate() != 1) {
+                    connection.rollback();
+                    return false;
+                }
+            }
+
+            connection.commit();
+            return true;
+
+        } catch (SQLException e) {
+            rollbackQuietly(connection);
+            e.printStackTrace();
+        } finally {
+            closeQuietly(connection);
         }
 
         return false;

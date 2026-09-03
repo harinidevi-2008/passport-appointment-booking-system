@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.pabs.dao.EmailNotificationDAO;
 import com.pabs.dao.UserDAO;
 import com.pabs.model.User;
 import com.pabs.service.EmailService;
@@ -23,6 +24,7 @@ public class RegisterServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(RegisterServlet.class.getName());
 
     private final UserDAO userDAO = new UserDAO();
+    private final EmailNotificationDAO emailNotificationDAO = new EmailNotificationDAO();
     private final EmailService emailService = new EmailService();
 
     @Override
@@ -52,9 +54,15 @@ public class RegisterServlet extends HttpServlet {
     private boolean sendRegistrationSuccessEmail(User user) {
         try {
             emailService.sendRegistrationSuccessEmail(user.getEmail(), user.getFullName());
+            emailNotificationDAO.record(null, null, null, "REGISTRATION_SUCCESS",
+                    user.getEmail(), "Passport Appointment Booking System - Registration Successful",
+                    true, null);
             LOGGER.info(() -> "Registration confirmation email sent. registeredEmail=" + user.getEmail());
             return true;
         } catch (MessagingException e) {
+            emailNotificationDAO.record(null, null, null, "REGISTRATION_SUCCESS",
+                    user.getEmail(), "Passport Appointment Booking System - Registration Successful",
+                    false, e.getMessage());
             LOGGER.log(Level.WARNING,
                     "Registration confirmation email failed. registeredEmail=" + user.getEmail()
                             + ", exceptionType=" + e.getClass().getName()

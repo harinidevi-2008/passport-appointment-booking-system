@@ -20,10 +20,16 @@
         if ("RESCHEDULED".equals(status)) {
             return "text-bg-primary";
         }
+        if ("ATTENDED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("COMPLETED".equals(status)) {
+            return "text-bg-dark";
+        }
         if ("CANCELLED".equals(status)) {
             return "text-bg-warning";
         }
-        if ("EXPIRED".equals(status)) {
+        if ("NO_SHOW".equals(status)) {
             return "text-bg-secondary";
         }
         return "text-bg-dark";
@@ -89,8 +95,10 @@
                         <option value="ALL" <%= "ALL".equals(selectedStatus) ? "selected" : "" %>>All</option>
                         <option value="BOOKED" <%= "BOOKED".equals(selectedStatus) ? "selected" : "" %>>BOOKED</option>
                         <option value="RESCHEDULED" <%= "RESCHEDULED".equals(selectedStatus) ? "selected" : "" %>>RESCHEDULED</option>
+                        <option value="ATTENDED" <%= "ATTENDED".equals(selectedStatus) ? "selected" : "" %>>ATTENDED</option>
+                        <option value="COMPLETED" <%= "COMPLETED".equals(selectedStatus) ? "selected" : "" %>>COMPLETED</option>
                         <option value="CANCELLED" <%= "CANCELLED".equals(selectedStatus) ? "selected" : "" %>>CANCELLED</option>
-                        <option value="EXPIRED" <%= "EXPIRED".equals(selectedStatus) ? "selected" : "" %>>EXPIRED</option>
+                        <option value="NO_SHOW" <%= "NO_SHOW".equals(selectedStatus) ? "selected" : "" %>>NO_SHOW</option>
                     </select>
                 </div>
                 <div class="col-md-2 d-grid">

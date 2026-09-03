@@ -15,17 +15,24 @@
     }
 
     private String statusClass(String status) {
-        if ("APPROVED".equals(status)) {
+        if ("APPROVED".equals(status) || "PROCESSING".equals(status)
+                || "PRINTING".equals(status) || "DISPATCHED".equals(status) || "DELIVERED".equals(status)) {
             return "text-bg-success";
         }
         if ("REJECTED".equals(status)) {
             return "text-bg-danger";
         }
         if ("VERIFIED".equals(status)) {
-            return "text-bg-primary";
+            return "text-bg-success";
         }
         if ("UNDER_REVIEW".equals(status)) {
             return "text-bg-warning";
+        }
+        if ("SUBMITTED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("CANCELLED".equals(status)) {
+            return "text-bg-secondary";
         }
         return "text-bg-secondary";
     }
@@ -126,6 +133,44 @@
                     <div class="col-md-4 detail-label">Submitted On</div>
                     <div class="col-md-8 detail-value"><%= value(submittedOn) %></div>
                 </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Application Status</div>
+                    <div class="col-md-8 detail-value"><%= value(applicationView.getApplication().getStatus()) %></div>
+                </div>
+                <% if ("CANCELLED".equals(applicationView.getApplication().getStatus())
+                        && applicationView.getApplication().getReviewNote() != null
+                        && !applicationView.getApplication().getReviewNote().trim().isEmpty()) { %>
+                    <div class="row detail-row">
+                        <div class="col-md-4 detail-label">Reason / Context</div>
+                        <div class="col-md-8 detail-value"><%= value(applicationView.getApplication().getReviewNote()) %></div>
+                    </div>
+                <% } %>
+            </div>
+
+            <div class="details-section">
+                <h2 class="h5 mb-3">Latest Appointment</h2>
+                <% if (applicationView.getAppointment() == null) { %>
+                    <p class="mb-0 text-muted">No appointment has been booked for this application.</p>
+                <% } else { %>
+                    <div class="row detail-row">
+                        <div class="col-md-4 detail-label">Appointment Number</div>
+                        <div class="col-md-8 detail-value"><%= value(applicationView.getAppointment().getAppointmentNumber()) %></div>
+                    </div>
+                    <div class="row detail-row">
+                        <div class="col-md-4 detail-label">Appointment Status</div>
+                        <div class="col-md-8 detail-value"><%= value(applicationView.getAppointment().getStatus()) %></div>
+                    </div>
+                    <% if (applicationView.getSlot() != null) { %>
+                        <div class="row detail-row">
+                            <div class="col-md-4 detail-label">Schedule</div>
+                            <div class="col-md-8 detail-value">
+                                <%= value(applicationView.getSlot().getAppointmentDate()) %>
+                                <%= value(applicationView.getSlot().getStartTime()) %>
+                                - <%= value(applicationView.getSlot().getEndTime()) %>
+                            </div>
+                        </div>
+                    <% } %>
+                <% } %>
             </div>
 
             <div class="details-section">
@@ -243,6 +288,15 @@
 
             <div class="details-section mb-0">
                 <h2 class="h5 mb-3">Status Management</h2>
+                <div class="status-guidance mb-3">
+                    <strong>VERIFIED</strong> means initial checks passed and the citizen may book an appointment.
+                    <strong>PROCESSING</strong> means a required appointment has been completed and final review can continue.
+                    <strong>REJECTED</strong> means this application cannot be used for appointment booking.
+                    <strong>APPROVED</strong> is the final positive application decision after required processing.
+                </div>
+                <% if ("VERIFIED".equals(applicationView.getApplication().getStatus())) { %>
+                    <p class="mb-3 text-muted">Approval available after appointment completion.</p>
+                <% } %>
                 <% if (nextStatuses == null || nextStatuses.isEmpty()) { %>
                     <p class="mb-0 text-muted">No further status transitions are available for this application.</p>
                 <% } else { %>

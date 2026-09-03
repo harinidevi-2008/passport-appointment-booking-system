@@ -1,6 +1,7 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.time.LocalDate" %>
 <%@ page import="java.util.List" %>
+<%@ page import="com.pabs.controller.AppointmentServlet" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
 <%@ page import="com.pabs.model.PassportOffice" %>
 <%
@@ -17,6 +18,8 @@
 
     List<PassportApplication> eligibleApplications =
             (List<PassportApplication>) request.getAttribute("eligibleApplications");
+    List<PassportApplication> applications =
+            (List<PassportApplication>) request.getAttribute("applications");
     List<PassportOffice> offices = (List<PassportOffice>) request.getAttribute("offices");
     Integer selectedApplicationId = (Integer) request.getAttribute("selectedApplicationId");
 %>
@@ -38,6 +41,7 @@
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
             <a class="nav-link active" href="appointment?action=my">My Appointments</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -58,9 +62,25 @@
                 </div>
             <% } %>
 
+            <% if (applications != null && !applications.isEmpty()) { %>
+                <div class="application-eligibility-list mb-4">
+                    <% for (PassportApplication item : applications) {
+                        boolean canBook = AppointmentServlet.isEligibleForAppointmentBooking(item);
+                    %>
+                        <div class="eligibility-row <%= canBook ? "is-eligible" : "is-blocked" %>">
+                            <div>
+                                <strong><%= item.getApplicationNumber() %></strong>
+                                <span><%= item.getApplicationType() %> - <%= item.getStatus() %></span>
+                            </div>
+                            <p class="mb-0"><%= canBook ? "Verified: this application is eligible for appointment booking." : AppointmentServlet.appointmentEligibilityMessage(item) %></p>
+                        </div>
+                    <% } %>
+                </div>
+            <% } %>
+
             <% if (eligibleApplications == null || eligibleApplications.isEmpty()) { %>
                 <div class="empty-state">
-                    <p class="mb-3">No eligible passport applications are available for appointment booking.</p>
+                    <p class="mb-3">No VERIFIED passport applications without an active appointment are available for appointment booking.</p>
                     <a class="btn btn-primary" href="my-applications">View My Applications</a>
                 </div>
             <% } else if (offices == null || offices.isEmpty()) { %>

@@ -12,6 +12,8 @@ public class Appointment {
     private String status;
     private Timestamp bookedAt;
     private Timestamp cancelledAt;
+    private Timestamp attendedAt;
+    private Timestamp completedAt;
     private Timestamp createdAt;
     private Timestamp updatedAt;
 
@@ -80,6 +82,22 @@ public class Appointment {
 
     public void setCancelledAt(Timestamp cancelledAt) {
         this.cancelledAt = cancelledAt;
+    }
+
+    public Timestamp getAttendedAt() {
+        return attendedAt;
+    }
+
+    public void setAttendedAt(Timestamp attendedAt) {
+        this.attendedAt = attendedAt;
+    }
+
+    public Timestamp getCompletedAt() {
+        return completedAt;
+    }
+
+    public void setCompletedAt(Timestamp completedAt) {
+        this.completedAt = completedAt;
     }
 
     public Timestamp getCreatedAt() {

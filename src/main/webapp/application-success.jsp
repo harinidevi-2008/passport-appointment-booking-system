@@ -1,4 +1,23 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%!
+    private String applicationStatusClass(Object statusValue) {
+        String status = statusValue == null ? "" : String.valueOf(statusValue);
+        if ("REJECTED".equals(status)) {
+            return "text-bg-danger";
+        }
+        if ("VERIFIED".equals(status) || "APPROVED".equals(status) || "PROCESSING".equals(status)
+                || "PRINTING".equals(status) || "DISPATCHED".equals(status) || "DELIVERED".equals(status)) {
+            return "text-bg-success";
+        }
+        if ("UNDER_REVIEW".equals(status)) {
+            return "text-bg-warning";
+        }
+        if ("SUBMITTED".equals(status)) {
+            return "text-bg-info";
+        }
+        return "text-bg-secondary";
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -38,6 +57,7 @@
             <a class="nav-link" href="user-dashboard.jsp">Dashboard</a>
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
+            <a class="nav-link" href="profile">My Profile</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -49,7 +69,7 @@
             <p class="text-uppercase text-muted fw-semibold mb-2">Application Submitted</p>
             <h1 class="h3 mb-3">Passport Application Submitted Successfully</h1>
             <p class="lead mb-1">Application Number: <strong><%= applicationNumber %></strong></p>
-            <p class="mb-4">Status: <span class="badge text-bg-success"><%= applicationStatus %></span></p>
+            <p class="mb-4">Status: <span class="badge <%= applicationStatusClass(applicationStatus) %>"><%= applicationStatus %></span></p>
 
             <% if (Boolean.TRUE.equals(applicationEmailSent)) { %>
                 <div class="alert alert-success text-start" role="alert">

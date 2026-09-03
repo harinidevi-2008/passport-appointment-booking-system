@@ -14,17 +14,24 @@
     }
 
     private String statusClass(String status) {
-        if ("APPROVED".equals(status)) {
+        if ("APPROVED".equals(status) || "PROCESSING".equals(status)
+                || "PRINTING".equals(status) || "DISPATCHED".equals(status) || "DELIVERED".equals(status)) {
             return "text-bg-success";
         }
         if ("REJECTED".equals(status)) {
             return "text-bg-danger";
         }
         if ("VERIFIED".equals(status)) {
-            return "text-bg-primary";
+            return "text-bg-success";
         }
         if ("UNDER_REVIEW".equals(status)) {
             return "text-bg-warning";
+        }
+        if ("SUBMITTED".equals(status)) {
+            return "text-bg-info";
+        }
+        if ("CANCELLED".equals(status)) {
+            return "text-bg-secondary";
         }
         return "text-bg-secondary";
     }
@@ -90,8 +97,13 @@
                         <option value="SUBMITTED" <%= "SUBMITTED".equals(selectedStatus) ? "selected" : "" %>>SUBMITTED</option>
                         <option value="UNDER_REVIEW" <%= "UNDER_REVIEW".equals(selectedStatus) ? "selected" : "" %>>UNDER_REVIEW</option>
                         <option value="VERIFIED" <%= "VERIFIED".equals(selectedStatus) ? "selected" : "" %>>VERIFIED</option>
+                        <option value="PROCESSING" <%= "PROCESSING".equals(selectedStatus) ? "selected" : "" %>>PROCESSING</option>
                         <option value="APPROVED" <%= "APPROVED".equals(selectedStatus) ? "selected" : "" %>>APPROVED</option>
+                        <option value="PRINTING" <%= "PRINTING".equals(selectedStatus) ? "selected" : "" %>>PRINTING</option>
+                        <option value="DISPATCHED" <%= "DISPATCHED".equals(selectedStatus) ? "selected" : "" %>>DISPATCHED</option>
+                        <option value="DELIVERED" <%= "DELIVERED".equals(selectedStatus) ? "selected" : "" %>>DELIVERED</option>
                         <option value="REJECTED" <%= "REJECTED".equals(selectedStatus) ? "selected" : "" %>>REJECTED</option>
+                        <option value="CANCELLED" <%= "CANCELLED".equals(selectedStatus) ? "selected" : "" %>>CANCELLED</option>
                     </select>
                 </div>
                 <div class="col-md-7">
@@ -120,6 +132,7 @@
                             <th>Mode</th>
                             <th>Submitted</th>
                             <th>Application Status</th>
+                            <th>Appointment Status</th>
                             <th>Documents</th>
                             <th>Action</th>
                         </tr>
@@ -137,7 +150,13 @@
                                     <span class="badge <%= statusClass(item.getApplication().getStatus()) %>">
                                         <%= value(item.getApplication().getStatus()) %>
                                     </span>
+                                    <% if ("CANCELLED".equals(item.getApplication().getStatus())
+                                            && item.getApplication().getReviewNote() != null
+                                            && !item.getApplication().getReviewNote().trim().isEmpty()) { %>
+                                        <div class="small text-muted mt-1"><%= value(item.getApplication().getReviewNote()) %></div>
+                                    <% } %>
                                 </td>
+                                <td><%= value(item.getAppointmentStatus()) %></td>
                                 <td>
                                     <span class="badge <%= item.hasAllRequiredDocuments() ? "text-bg-success" : "text-bg-secondary" %>">
                                         <%= value(item.getDocumentStatus()) %>

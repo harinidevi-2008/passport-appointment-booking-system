@@ -13,12 +13,14 @@ import java.util.logging.Logger;
 
 import com.pabs.dao.AppointmentDAO;
 import com.pabs.dao.AppointmentSlotDAO;
+import com.pabs.dao.EmailNotificationDAO;
 import com.pabs.dao.PassportApplicationDAO;
 import com.pabs.dao.PassportOfficeDAO;
 import com.pabs.model.Appointment;
 import com.pabs.model.AppointmentSlot;
 import com.pabs.model.PassportApplication;
 import com.pabs.model.PassportOffice;
+import com.pabs.service.AppointmentNotificationService;
 import com.pabs.service.EmailService;
 
 import jakarta.mail.MessagingException;
@@ -34,12 +36,15 @@ public class AppointmentServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
     private static final Logger LOGGER = Logger.getLogger(AppointmentServlet.class.getName());
+    private static final String APPOINTMENT_ELIGIBLE_APPLICATION_STATUS = "VERIFIED";
 
     private final PassportApplicationDAO applicationDAO = new PassportApplicationDAO();
     private final PassportOfficeDAO officeDAO = new PassportOfficeDAO();
     private final AppointmentSlotDAO slotDAO = new AppointmentSlotDAO();
     private final AppointmentDAO appointmentDAO = new AppointmentDAO();
+    private final EmailNotificationDAO emailNotificationDAO = new EmailNotificationDAO();
     private final EmailService emailService = new EmailService();
+    private final AppointmentNotificationService appointmentNotificationService = new AppointmentNotificationService();
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -51,6 +56,8 @@ public class AppointmentServlet extends HttpServlet {
             redirectBySession(session, response);
             return;
         }
+
+        appointmentNotificationService.expirePastAppointmentsAndNotifyNoShow();
 
         String action = clean(request.getParameter("action"));
 
@@ -129,8 +136,13 @@ public class AppointmentServlet extends HttpServlet {
         List<PassportOffice> offices = officeDAO.findActiveOffices();
         Integer selectedApplicationId = parseInt(request.getParameter("applicationId"));
 
-        if (selectedApplicationId != null && getUserApplication(selectedApplicationId, userId) != null
-                && appointmentDAO.findActiveAppointmentForApplication(selectedApplicationId, userId) == null) {
+        PassportApplication selectedApplication = selectedApplicationId == null
+                ? null
+                : getUserApplication(selectedApplicationId, userId);
+        if (selectedApplication != null
+                && isEligibleForAppointmentBooking(selectedApplication)
+                && appointmentDAO.findActiveAppointmentForApplication(selectedApplicationId, userId) == null
+                && !appointmentDAO.hasCompletedAppointmentForApplication(selectedApplicationId, userId)) {
             request.setAttribute("selectedApplicationId", selectedApplicationId);
         }
 
@@ -164,8 +176,21 @@ public class AppointmentServlet extends HttpServlet {
             return;
         }
 
+        if (!isEligibleForAppointmentBooking(application)) {
+            request.setAttribute("errorMessage", appointmentEligibilityMessage(application));
+            showBookingForm(request, response, session);
+            return;
+        }
+
         if (appointmentDAO.findActiveAppointmentForApplication(applicationId, userId) != null) {
             request.setAttribute("errorMessage", "This application already has an active appointment.");
+            showBookingForm(request, response, session);
+            return;
+        }
+
+        if (appointmentDAO.hasCompletedAppointmentForApplication(applicationId, userId)) {
+            request.setAttribute("errorMessage",
+                    "This application already has a completed appointment. Normal appointment booking is no longer available.");
             showBookingForm(request, response, session);
             return;
         }
@@ -306,6 +331,25 @@ public class AppointmentServlet extends HttpServlet {
             return;
         }
 
+        if (!isEligibleForAppointmentBooking(application)) {
+            request.setAttribute("errorMessage", appointmentEligibilityMessage(application));
+            showBookingForm(request, response, session);
+            return;
+        }
+
+        if (appointmentDAO.findActiveAppointmentForApplication(applicationId, userId) != null) {
+            request.setAttribute("errorMessage", "This application already has an active appointment.");
+            showBookingForm(request, response, session);
+            return;
+        }
+
+        if (appointmentDAO.hasCompletedAppointmentForApplication(applicationId, userId)) {
+            request.setAttribute("errorMessage",
+                    "This application already has a completed appointment. Normal appointment booking is no longer available.");
+            showBookingForm(request, response, session);
+            return;
+        }
+
         if (slot == null || !slot.isActive()) {
             request.setAttribute("errorMessage", "The selected appointment slot is no longer available.");
             showBookingForm(request, response, session);
@@ -420,6 +464,12 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         request.setAttribute("appointmentView", appointmentView);
+        Appointment activeAppointment = appointmentDAO.findActiveAppointmentForApplication(
+                appointmentView.getApplication().getId(), userId);
+        boolean canBookSameApplication = "NO_SHOW".equals(appointmentView.getAppointment().getStatus())
+                && isEligibleForAppointmentBooking(appointmentView.getApplication())
+                && activeAppointment == null;
+        request.setAttribute("canBookSameApplication", canBookSameApplication);
         if ("1".equals(request.getParameter("booked"))) {
             request.getRequestDispatcher("appointment-confirmation.jsp").forward(request, response);
         } else {
@@ -476,16 +526,20 @@ public class AppointmentServlet extends HttpServlet {
                     appointmentView.getAppointment().getAppointmentNumber(),
                     appointmentView.getApplication().getApplicationNumber(),
                     appointmentView.getOffice().getOfficeName(),
-                    String.valueOf(appointmentView.getSlot().getAppointmentDate()),
-                    String.valueOf(appointmentView.getSlot().getStartTime()),
-                    String.valueOf(appointmentView.getSlot().getEndTime()),
+                    appointmentView.getSlot().getAppointmentDate(),
+                    appointmentView.getSlot().getStartTime(),
+                    appointmentView.getSlot().getEndTime(),
                     appointmentView.getAppointment().getStatus()
             );
+            recordEmail(appointmentView, "APPOINTMENT_BOOKED", to,
+                    EmailService.SUBJECT_APPOINTMENT_BOOKED, true, null);
             LOGGER.info(() -> "Appointment booking email sent. appointmentId="
                     + appointmentView.getAppointment().getId()
                     + ", appointmentNumber=" + appointmentView.getAppointment().getAppointmentNumber());
             return true;
         } catch (MessagingException e) {
+            recordEmail(appointmentView, "APPOINTMENT_BOOKED", to,
+                    EmailService.SUBJECT_APPOINTMENT_BOOKED, false, e.getMessage());
             LOGGER.log(Level.WARNING,
                     "Appointment booking email failed. appointmentId="
                             + appointmentView.getAppointment().getId()
@@ -514,15 +568,19 @@ public class AppointmentServlet extends HttpServlet {
                     appointmentView.getAppointment().getAppointmentNumber(),
                     appointmentView.getApplication().getApplicationNumber(),
                     appointmentView.getOffice().getOfficeName(),
-                    String.valueOf(appointmentView.getSlot().getAppointmentDate()),
-                    String.valueOf(appointmentView.getSlot().getStartTime()),
-                    String.valueOf(appointmentView.getSlot().getEndTime())
+                    appointmentView.getSlot().getAppointmentDate(),
+                    appointmentView.getSlot().getStartTime(),
+                    appointmentView.getSlot().getEndTime()
             );
+            recordEmail(appointmentView, "APPOINTMENT_CANCELLED", to,
+                    EmailService.SUBJECT_APPOINTMENT_CANCELLED, true, null);
             LOGGER.info(() -> "Appointment cancellation email sent. appointmentId="
                     + appointmentView.getAppointment().getId()
                     + ", appointmentNumber=" + appointmentView.getAppointment().getAppointmentNumber());
             return true;
         } catch (MessagingException e) {
+            recordEmail(appointmentView, "APPOINTMENT_CANCELLED", to,
+                    EmailService.SUBJECT_APPOINTMENT_CANCELLED, false, e.getMessage());
             LOGGER.log(Level.WARNING,
                     "Appointment cancellation email failed. appointmentId="
                             + appointmentView.getAppointment().getId()
@@ -548,18 +606,25 @@ public class AppointmentServlet extends HttpServlet {
         }
 
         try {
-            emailService.sendAppointmentRescheduled(
+            emailService.sendAppointmentRescheduledEmail(
                     to,
+                    getRecipientName(session, newAppointmentView),
                     newAppointmentView.getAppointment().getAppointmentNumber(),
                     newAppointmentView.getApplication().getApplicationNumber(),
                     newAppointmentView.getOffice().getOfficeName(),
-                    formatSchedule(oldAppointmentView.getSlot()),
-                    formatSchedule(newAppointmentView.getSlot())
+                    newAppointmentView.getSlot().getAppointmentDate(),
+                    newAppointmentView.getSlot().getStartTime(),
+                    newAppointmentView.getSlot().getEndTime(),
+                    newAppointmentView.getAppointment().getStatus()
             );
+            recordEmail(newAppointmentView, "APPOINTMENT_RESCHEDULED", to,
+                    EmailService.SUBJECT_APPOINTMENT_RESCHEDULED, true, null);
             LOGGER.info(() -> "Appointment reschedule email sent. appointmentId="
                     + newAppointmentView.getAppointment().getId());
             return true;
         } catch (MessagingException e) {
+            recordEmail(newAppointmentView, "APPOINTMENT_RESCHEDULED", to,
+                    EmailService.SUBJECT_APPOINTMENT_RESCHEDULED, false, e.getMessage());
             LOGGER.log(Level.WARNING,
                     "Appointment reschedule email failed. appointmentId="
                             + newAppointmentView.getAppointment().getId()
@@ -586,6 +651,29 @@ public class AppointmentServlet extends HttpServlet {
         return fullName.isEmpty() ? "User" : fullName;
     }
 
+    private void recordEmail(AppointmentView appointmentView,
+                             String notificationType,
+                             String recipientEmail,
+                             String subject,
+                             boolean sent,
+                             String errorMessage) {
+        if (appointmentView == null || appointmentView.getAppointment() == null
+                || appointmentView.getApplication() == null) {
+            return;
+        }
+
+        emailNotificationDAO.record(
+                appointmentView.getAppointment().getUserId(),
+                appointmentView.getApplication().getId(),
+                appointmentView.getAppointment().getId(),
+                notificationType,
+                recipientEmail,
+                subject,
+                sent,
+                errorMessage
+        );
+    }
+
     private String formatSchedule(AppointmentSlot slot) {
         return slot.getAppointmentDate() + " " + slot.getStartTime() + " - " + slot.getEndTime();
     }
@@ -595,11 +683,51 @@ public class AppointmentServlet extends HttpServlet {
 
         List<PassportApplication> eligibleApplications = new ArrayList<>();
         for (PassportApplication application : applications) {
-            if (appointmentDAO.findActiveAppointmentForApplication(application.getId(), userId) == null) {
+            if (isEligibleForAppointmentBooking(application)
+                    && appointmentDAO.findActiveAppointmentForApplication(application.getId(), userId) == null
+                    && !appointmentDAO.hasCompletedAppointmentForApplication(application.getId(), userId)) {
                 eligibleApplications.add(application);
             }
         }
         return eligibleApplications;
+    }
+
+    public static boolean isEligibleForAppointmentBooking(PassportApplication application) {
+        return application != null
+                && APPOINTMENT_ELIGIBLE_APPLICATION_STATUS.equals(application.getStatus());
+    }
+
+    public static String appointmentEligibilityMessage(PassportApplication application) {
+        if (application == null) {
+            return "Please select a valid passport application.";
+        }
+
+        String status = application.getStatus();
+        if ("REJECTED".equals(status)) {
+            return "Appointment booking is unavailable because this application was rejected.";
+        }
+        if ("SUBMITTED".equals(status) || "UNDER_REVIEW".equals(status)) {
+            return "Appointment booking is not available yet. Your application must be verified before you can book an appointment.";
+        }
+        if ("APPROVED".equals(status)) {
+            return "This application has already reached a final approved decision. Initial appointment booking is available only while the application is VERIFIED.";
+        }
+        if ("PROCESSING".equals(status)) {
+            return "Your appointment is complete and this application is in processing. Normal appointment booking is no longer available.";
+        }
+        if ("PRINTING".equals(status)) {
+            return "Your passport is printing. Normal appointment booking is no longer available.";
+        }
+        if ("DISPATCHED".equals(status)) {
+            return "Your passport has been dispatched. Normal appointment booking is no longer available.";
+        }
+        if ("DELIVERED".equals(status)) {
+            return "Your passport has been delivered. Normal appointment booking is no longer available.";
+        }
+        if ("CANCELLED".equals(status)) {
+            return "Appointment booking is unavailable because this application was cancelled.";
+        }
+        return "Appointment booking is available only for VERIFIED applications.";
     }
 
     private PassportApplication getUserApplication(int applicationId, int userId) {
