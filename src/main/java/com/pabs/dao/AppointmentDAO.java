@@ -16,6 +16,7 @@ import com.pabs.util.DBConnection;
 public class AppointmentDAO {
 
     private static final String ACTIVE_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED'";
+    private static final String CAPACITY_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED', 'ATTENDED'";
     private static final String OPEN_APPLICATION_APPOINTMENT_STATUSES = "'BOOKED', 'RESCHEDULED', 'ATTENDED'";
     private static final String EXPIRE_PAST_ACTIVE_APPOINTMENTS =
             "UPDATE appointments a JOIN appointment_slots s ON s.id=a.slot_id "
@@ -63,7 +64,7 @@ public class AppointmentDAO {
     private static final String COUNT_ACTIVE_BOOKINGS_FOR_SLOT =
             "SELECT COUNT(*) FROM appointments a JOIN appointment_slots s ON s.id=a.slot_id "
                     + "WHERE a.slot_id=? "
-                    + "AND a.status IN (" + ACTIVE_APPOINTMENT_STATUSES + ") "
+                    + "AND a.status IN (" + CAPACITY_APPOINTMENT_STATUSES + ") "
                     + "AND TIMESTAMP(s.appointment_date, s.end_time) >= NOW()";
 
     private static final String INSERT_APPOINTMENT =
@@ -126,6 +127,16 @@ public class AppointmentDAO {
                     + "JOIN appointments a ON a.application_id=pa.id "
                     + "SET pa.status='PROCESSING', pa.review_note=NULL "
                     + "WHERE a.id=? AND a.status='COMPLETED' AND pa.status='VERIFIED'";
+
+    private static final String SELECT_VERIFIED_APPLICATION_FOR_COMPLETED_APPOINTMENT =
+            "SELECT pa.id FROM passport_applications pa "
+                    + "JOIN appointments a ON a.application_id=pa.id "
+                    + "WHERE a.id=? AND a.status='COMPLETED' AND pa.status='VERIFIED' "
+                    + "FOR UPDATE";
+
+    private static final String INSERT_APPLICATION_STATUS_HISTORY =
+            "INSERT INTO application_status_history(application_id, old_status, new_status, changed_by_user_id, note) "
+                    + "VALUES(?,?,?,?,?)";
 
     public Appointment createAppointment(int applicationId, int userId, int slotId) {
         Connection connection = null;
@@ -415,6 +426,10 @@ public class AppointmentDAO {
     }
 
     public boolean markCompleted(int appointmentId) {
+        return markCompleted(appointmentId, null);
+    }
+
+    public boolean markCompleted(int appointmentId, Integer changedByUserId) {
         Connection connection = null;
 
         try {
@@ -430,6 +445,12 @@ public class AppointmentDAO {
                 }
             }
 
+            Integer applicationId = lockVerifiedApplicationForCompletedAppointment(connection, appointmentId);
+            if (applicationId == null) {
+                connection.rollback();
+                return false;
+            }
+
             try (PreparedStatement ps =
                          connection.prepareStatement(MOVE_APPLICATION_TO_PROCESSING_AFTER_COMPLETED_APPOINTMENT)) {
                 ps.setInt(1, appointmentId);
@@ -438,6 +459,9 @@ public class AppointmentDAO {
                     return false;
                 }
             }
+
+            insertApplicationStatusHistory(connection, applicationId, "VERIFIED", "PROCESSING",
+                    changedByUserId, "Appointment completed");
 
             connection.commit();
             return true;
@@ -450,6 +474,45 @@ public class AppointmentDAO {
         }
 
         return false;
+    }
+
+    private Integer lockVerifiedApplicationForCompletedAppointment(Connection connection, int appointmentId)
+            throws SQLException {
+
+        try (PreparedStatement ps =
+                     connection.prepareStatement(SELECT_VERIFIED_APPLICATION_FOR_COMPLETED_APPOINTMENT)) {
+            ps.setInt(1, appointmentId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("id");
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private void insertApplicationStatusHistory(Connection connection,
+                                                int applicationId,
+                                                String oldStatus,
+                                                String newStatus,
+                                                Integer changedByUserId,
+                                                String note)
+            throws SQLException {
+
+        try (PreparedStatement ps = connection.prepareStatement(INSERT_APPLICATION_STATUS_HISTORY)) {
+            ps.setInt(1, applicationId);
+            ps.setString(2, oldStatus);
+            ps.setString(3, newStatus);
+            if (changedByUserId == null) {
+                ps.setNull(4, java.sql.Types.INTEGER);
+            } else {
+                ps.setInt(4, changedByUserId);
+            }
+            ps.setString(5, note);
+            ps.executeUpdate();
+        }
     }
 
     public int countActiveBookingsForSlot(int slotId) {

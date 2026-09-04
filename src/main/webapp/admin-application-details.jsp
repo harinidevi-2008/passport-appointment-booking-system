@@ -1,7 +1,10 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.util.List" %>
 <%@ page import="java.util.Set" %>
 <%@ page import="com.pabs.controller.AdminApplicationServlet.AdminApplicationView" %>
+<%@ page import="com.pabs.dao.PassportApplicationDAO.ApplicationStatusHistory" %>
+<%@ page import="com.pabs.util.CsrfUtil" %>
 <%!
     private String value(Object value) {
         if (value == null) {
@@ -58,6 +61,9 @@
 
     Set<String> nextStatuses = (Set<String>) request.getAttribute("nextStatuses");
     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy");
+    DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+    List<ApplicationStatusHistory> statusHistory =
+            (List<ApplicationStatusHistory>) request.getAttribute("statusHistory");
     String dob = applicationView.getApplication().getDateOfBirth() == null
             ? ""
             : applicationView.getApplication().getDateOfBirth().format(dateFormatter);
@@ -78,10 +84,13 @@
 <nav class="navbar navbar-expand-lg navbar-dark dashboard-nav">
     <div class="container">
         <a class="navbar-brand" href="admin-dashboard.jsp">Passport Appointment Booking System</a>
-        <div class="d-flex gap-2">
-            <a class="btn btn-outline-light" href="admin-applications">Application Processing</a>
-            <a class="btn btn-outline-light" href="admin-appointments">Appointment Management</a>
-            <a class="btn btn-outline-light" href="admin-documents">Document Status</a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-light" href="admin-dashboard.jsp">Dashboard</a>
+            <a class="btn btn-light" href="admin-applications">Applications</a>
+            <a class="btn btn-outline-light" href="admin-appointments">Appointments</a>
+            <a class="btn btn-outline-light" href="admin-slots">Slot Management</a>
+            <a class="btn btn-outline-light" href="admin-reports">Reports</a>
+            <a class="btn btn-outline-light" href="admin-documents">Documents</a>
             <a class="btn btn-outline-light" href="logout">Logout</a>
         </div>
     </div>
@@ -286,6 +295,44 @@
                 </div>
             <% } %>
 
+            <div class="details-section">
+                <h2 class="h5 mb-3">Application Status History</h2>
+                <% if (statusHistory == null || statusHistory.isEmpty()) { %>
+                    <div class="alert alert-secondary mb-0" role="alert">
+                        No stored status history is available. Apply <code>database/application_status_history.sql</code> before processing applications.
+                    </div>
+                <% } else { %>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle application-table">
+                            <thead>
+                            <tr>
+                                <th>Changed At</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Changed By</th>
+                                <th>Note</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <% for (ApplicationStatusHistory item : statusHistory) {
+                                String changedAt = item.getChangedAt() == null
+                                        ? ""
+                                        : item.getChangedAt().toLocalDateTime().format(dateTimeFormatter);
+                            %>
+                                <tr>
+                                    <td><%= value(changedAt) %></td>
+                                    <td><%= value(item.getOldStatus() == null ? "Initial" : item.getOldStatus()) %></td>
+                                    <td><strong><%= value(item.getNewStatus()) %></strong></td>
+                                    <td><%= item.getChangedByUserId() == null ? "System" : value(item.getChangedByUserId()) %></td>
+                                    <td><%= value(item.getNote()) %></td>
+                                </tr>
+                            <% } %>
+                            </tbody>
+                        </table>
+                    </div>
+                <% } %>
+            </div>
+
             <div class="details-section mb-0">
                 <h2 class="h5 mb-3">Status Management</h2>
                 <div class="status-guidance mb-3">
@@ -301,6 +348,7 @@
                     <p class="mb-0 text-muted">No further status transitions are available for this application.</p>
                 <% } else { %>
                     <form action="admin-applications?action=updateStatus" method="post" class="needs-validation" novalidate>
+                        <input type="hidden" name="csrfToken" value="<%= CsrfUtil.getToken(session) %>">
                         <input type="hidden" name="applicationId" value="<%= applicationView.getApplication().getId() %>">
                         <div class="mb-3">
                             <label class="form-label" for="status">Next Status</label>

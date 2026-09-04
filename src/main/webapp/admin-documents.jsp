@@ -45,10 +45,12 @@
 <nav class="navbar navbar-expand-lg navbar-dark dashboard-nav">
     <div class="container">
         <a class="navbar-brand" href="admin-dashboard.jsp">Passport Appointment Booking System</a>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-light" href="admin-dashboard.jsp">Dashboard</a>
-            <a class="btn btn-outline-light" href="admin-applications">Application Processing</a>
-            <a class="btn btn-outline-light" href="admin-appointments">Appointment Management</a>
+            <a class="btn btn-outline-light" href="admin-applications">Applications</a>
+            <a class="btn btn-outline-light" href="admin-appointments">Appointments</a>
+            <a class="btn btn-outline-light" href="admin-slots">Slot Management</a>
+            <a class="btn btn-outline-light" href="admin-reports">Reports</a>
             <a class="btn btn-outline-light" href="logout">Logout</a>
         </div>
     </div>

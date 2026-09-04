@@ -8,6 +8,7 @@ import com.pabs.dao.EmailNotificationDAO;
 import com.pabs.dao.UserDAO;
 import com.pabs.model.User;
 import com.pabs.service.EmailService;
+import com.pabs.util.PasswordPolicy;
 
 import jakarta.mail.MessagingException;
 import jakarta.servlet.ServletException;
@@ -32,9 +33,19 @@ public class RegisterServlet extends HttpServlet {
                           HttpServletResponse response)
             throws ServletException, IOException {
 
-        String fullName = request.getParameter("fullName");
-        String email = request.getParameter("email");
+        String fullName = clean(request.getParameter("fullName"));
+        String email = clean(request.getParameter("email")).toLowerCase();
         String password = request.getParameter("password");
+        String confirmPassword = request.getParameter("confirmPassword");
+
+        String validationError = validateRegistration(fullName, email, password, confirmPassword);
+        if (validationError != null) {
+            request.setAttribute("errorMessage", validationError);
+            request.setAttribute("fullName", fullName);
+            request.setAttribute("email", email);
+            request.getRequestDispatcher("register.jsp").forward(request, response);
+            return;
+        }
 
         User user = new User(fullName, email, password);
 
@@ -47,8 +58,27 @@ public class RegisterServlet extends HttpServlet {
             session.setAttribute("registeredEmail", user.getEmail());
             response.sendRedirect("register-success.jsp");
         } else {
-            response.sendRedirect("register.jsp");
+            request.setAttribute("errorMessage", "Unable to create the account. The email may already be registered.");
+            request.setAttribute("fullName", fullName);
+            request.setAttribute("email", email);
+            request.getRequestDispatcher("register.jsp").forward(request, response);
         }
+    }
+
+    private String validateRegistration(String fullName, String email, String password, String confirmPassword) {
+        if (fullName.isEmpty() || email.isEmpty()) {
+            return "Full name and email are required.";
+        }
+        if (fullName.length() > 100) {
+            return "Full name must be 100 characters or fewer.";
+        }
+        if (email.length() > 100 || !email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+            return "Please enter a valid email address.";
+        }
+        if (userDAO.findByEmail(email) != null) {
+            return "This email address is already registered.";
+        }
+        return PasswordPolicy.validateNewPassword(password, confirmPassword);
     }
 
     private boolean sendRegistrationSuccessEmail(User user) {
@@ -70,5 +100,9 @@ public class RegisterServlet extends HttpServlet {
                     e);
             return false;
         }
+    }
+
+    private String clean(String value) {
+        return value == null ? "" : value.trim();
     }
 }

@@ -25,6 +25,7 @@ public class ForgotPasswordServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
     private static final int OTP_EXPIRY_MINUTES = 5;
+    private static final int OTP_REQUEST_COOLDOWN_SECONDS = 60;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final Logger LOGGER = Logger.getLogger(ForgotPasswordServlet.class.getName());
 
@@ -39,6 +40,16 @@ public class ForgotPasswordServlet extends HttpServlet {
 
         String email = clean(request.getParameter("email"));
         HttpSession session = request.getSession();
+
+        Long lastRequestTime = (Long) session.getAttribute("passwordResetLastRequestTime");
+        long now = System.currentTimeMillis();
+        if (lastRequestTime != null && now - lastRequestTime < OTP_REQUEST_COOLDOWN_SECONDS * 1000L) {
+            request.setAttribute("errorMessage",
+                    "Please wait a minute before requesting another OTP.");
+            request.getRequestDispatcher("forgot-password.jsp").forward(request, response);
+            return;
+        }
+        session.setAttribute("passwordResetLastRequestTime", now);
 
         clearResetState(session);
 

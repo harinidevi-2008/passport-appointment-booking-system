@@ -5,6 +5,7 @@ import java.util.regex.Pattern;
 
 import com.pabs.dao.UserDAO;
 import com.pabs.model.User;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -61,6 +62,11 @@ public class ProfileServlet extends HttpServlet {
         if (user == null) {
             session.invalidate();
             response.sendRedirect("login.jsp");
+            return;
+        }
+
+        if (!CsrfUtil.isValid(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 

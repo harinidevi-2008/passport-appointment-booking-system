@@ -1,4 +1,16 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%!
+    private String value(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -23,8 +35,10 @@
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
             <a class="nav-link" href="documents">Upload Documents</a>
+            <a class="nav-link" href="appointment?action=book">Smart Recommendations</a>
             <a class="nav-link" href="appointment?action=my">My Appointments</a>
             <a class="nav-link" href="profile">My Profile</a>
+            <a class="nav-link" href="change-password">Change Password</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -34,7 +48,7 @@
     <div class="container">
         <div class="portal-welcome-card mb-4">
             <p class="portal-kicker mb-2">User Dashboard</p>
-            <h1>Welcome, <%= session.getAttribute("fullName") %></h1>
+            <h1>Welcome, <%= value(session.getAttribute("fullName")) %></h1>
             <p class="mb-0">Passport Appointment Booking System</p>
         </div>
 
@@ -66,9 +80,9 @@
             <div class="col-lg-3">
                 <div class="service-card h-100">
                     <div class="service-icon">A</div>
-                    <h2>Appointments</h2>
-                    <p>Book and manage passport appointments.</p>
-                    <a class="btn btn-primary btn-lg mt-auto" href="appointment?action=my">My Appointments</a>
+                    <h2>Smart Booking</h2>
+                    <p>Find offices and slots using availability and crowd data.</p>
+                    <a class="btn btn-primary btn-lg mt-auto" href="appointment?action=book">Find Slots</a>
                 </div>
             </div>
             <div class="col-lg-3">

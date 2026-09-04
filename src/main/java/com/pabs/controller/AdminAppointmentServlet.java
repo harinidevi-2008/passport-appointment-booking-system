@@ -18,6 +18,7 @@ import com.pabs.model.PassportApplication;
 import com.pabs.model.PassportOffice;
 import com.pabs.service.AppointmentNotificationService;
 import com.pabs.service.EmailService;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.mail.MessagingException;
 import jakarta.servlet.ServletException;
@@ -87,6 +88,11 @@ public class AdminAppointmentServlet extends HttpServlet {
             return;
         }
 
+        if (!CsrfUtil.isValid(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
         Integer appointmentId = parseInt(request.getParameter("appointmentId"));
         String action = clean(request.getParameter("action"));
         if (appointmentId == null) {
@@ -100,7 +106,7 @@ public class AdminAppointmentServlet extends HttpServlet {
             updated = appointmentDAO.markAttended(appointmentId);
             newStatus = "ATTENDED";
         } else if ("markCompleted".equals(action)) {
-            updated = appointmentDAO.markCompleted(appointmentId);
+            updated = appointmentDAO.markCompleted(appointmentId, (Integer) session.getAttribute("userId"));
             newStatus = "COMPLETED";
         } else {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);

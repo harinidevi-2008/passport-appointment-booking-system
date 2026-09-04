@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.pabs.model.Document" %>
+<%@ page import="com.pabs.util.CsrfUtil" %>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -108,6 +109,7 @@
             </section>
 
             <form action="documents" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrfToken" value="<%= CsrfUtil.getToken(session) %>">
                 <section class="card form-section-card">
                     <div class="card-body">
                         <h2><%= allUploaded ? "Replace Documents" : "Upload Required Documents" %></h2>

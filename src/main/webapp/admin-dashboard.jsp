@@ -1,4 +1,16 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%!
+    private String value(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+%>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -24,9 +36,12 @@
 <nav class="navbar navbar-expand-lg navbar-dark dashboard-nav">
     <div class="container">
         <span class="navbar-brand">Passport Appointment Booking System</span>
-        <div class="d-flex gap-2">
-            <a class="btn btn-outline-light" href="admin-applications">Application Processing</a>
-            <a class="btn btn-outline-light" href="admin-appointments">Appointment Management</a>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-light" href="admin-applications">Applications</a>
+            <a class="btn btn-outline-light" href="admin-appointments">Appointments</a>
+            <a class="btn btn-outline-light" href="admin-slots">Slot Management</a>
+            <a class="btn btn-outline-light" href="admin-reports">Reports</a>
+            <a class="btn btn-outline-light" href="change-password">Change Password</a>
             <a class="btn btn-outline-light" href="admin-documents">Document Status</a>
             <a class="btn btn-outline-light" href="logout">Logout</a>
         </div>
@@ -37,7 +52,7 @@
     <div class="container">
         <div class="dashboard-panel mb-4">
             <p class="text-uppercase text-muted fw-semibold mb-2">Admin Dashboard</p>
-            <h1>Welcome, <%= session.getAttribute("fullName") %></h1>
+            <h1>Welcome, <%= value(session.getAttribute("fullName")) %></h1>
             <p class="lead mb-0">You have administrator access.</p>
         </div>
 
@@ -61,6 +76,20 @@
                     <h2>Document Review</h2>
                     <p>Review uploaded passport documents by citizen.</p>
                     <a class="btn btn-primary mt-auto" href="admin-documents">Open Documents</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card h-100">
+                    <h2>Slot Management</h2>
+                    <p>View slot capacity, utilization, and active state.</p>
+                    <a class="btn btn-primary mt-auto" href="admin-slots">Manage Slots</a>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="service-card h-100">
+                    <h2>Reports</h2>
+                    <p>Review citizen, application, and appointment summaries.</p>
+                    <a class="btn btn-primary mt-auto" href="admin-reports">Open Reports</a>
                 </div>
             </div>
         </div>

@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import com.pabs.dao.PasswordResetDAO;
 import com.pabs.dao.UserDAO;
+import com.pabs.util.PasswordPolicy;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -16,8 +17,6 @@ import jakarta.servlet.http.HttpSession;
 public class ResetPasswordServlet extends HttpServlet {
 
     private static final long serialVersionUID = 1L;
-    private static final int MIN_PASSWORD_LENGTH = 8;
-
     private final UserDAO userDAO = new UserDAO();
     private final PasswordResetDAO passwordResetDAO = new PasswordResetDAO();
 
@@ -58,19 +57,7 @@ public class ResetPasswordServlet extends HttpServlet {
     }
 
     private String validatePassword(String password, String confirmPassword) {
-        if (password == null || password.trim().isEmpty()) {
-            return "Please enter a new password.";
-        }
-
-        if (password.length() < MIN_PASSWORD_LENGTH) {
-            return "Password must be at least 8 characters long.";
-        }
-
-        if (!password.equals(confirmPassword)) {
-            return "New password and confirmation password do not match.";
-        }
-
-        return null;
+        return PasswordPolicy.validateNewPassword(password, confirmPassword);
     }
 
     private boolean hasVerifiedReset(HttpSession session) {

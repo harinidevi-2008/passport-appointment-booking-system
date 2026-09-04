@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS appointment_slots (
     appointment_date DATE NOT NULL,
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
-    capacity INT NOT NULL DEFAULT 1,
+    capacity INT NOT NULL DEFAULT 3,
     active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_appointment_slots_office

@@ -1,4 +1,16 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%!
+    private String value(Object value) {
+        if (value == null) {
+            return "";
+        }
+        return String.valueOf(value).replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
+    }
+%>
 <!DOCTYPE html>
 <html>
 <head>
@@ -51,21 +63,31 @@
             <div class="auth-form-wrap">
                 <h2>Create Your Account</h2>
                 <p class="auth-intro">Register to manage your passport applications and appointments.</p>
+                <% if (request.getAttribute("errorMessage") != null) { %>
+                    <div class="alert alert-danger" role="alert"><%= value(request.getAttribute("errorMessage")) %></div>
+                <% } %>
 
             <form action="register" method="post">
                 <div class="mb-3">
                     <label for="fullName" class="form-label">Full Name</label>
-                    <input type="text" class="form-control" id="fullName" name="fullName" required>
+                    <input type="text" class="form-control" id="fullName" name="fullName"
+                           maxlength="100" value="<%= value(request.getAttribute("fullName")) %>" required>
                 </div>
 
                 <div class="mb-3">
                     <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" name="email" required>
+                    <input type="email" class="form-control" id="email" name="email"
+                           maxlength="100" value="<%= value(request.getAttribute("email")) %>" required>
+                </div>
+
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" minlength="8" maxlength="128" required>
                 </div>
 
                 <div class="mb-4">
-                    <label for="password" class="form-label">Password</label>
-                    <input type="password" class="form-control" id="password" name="password" required>
+                    <label for="confirmPassword" class="form-label">Confirm Password</label>
+                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" minlength="8" maxlength="128" required>
                 </div>
 
                 <button type="submit" class="btn btn-primary w-100">Register</button>

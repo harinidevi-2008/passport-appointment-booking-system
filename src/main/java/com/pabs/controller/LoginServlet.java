@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import com.pabs.dao.UserDAO;
 import com.pabs.model.User;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -24,17 +25,23 @@ public class LoginServlet extends HttpServlet {
                           HttpServletResponse response)
             throws ServletException, IOException {
 
-        String email = request.getParameter("email");
+        String email = clean(request.getParameter("email")).toLowerCase();
         String password = request.getParameter("password");
 
         User user = userDAO.loginUser(email, password);
 
         if (user != null) {
-            HttpSession session = request.getSession();
+            HttpSession oldSession = request.getSession(false);
+            if (oldSession != null) {
+                oldSession.invalidate();
+            }
+
+            HttpSession session = request.getSession(true);
             session.setAttribute("userId", user.getId());
             session.setAttribute("fullName", user.getFullName());
             session.setAttribute("email", user.getEmail());
             session.setAttribute("role", user.getRole());
+            CsrfUtil.rotateToken(session);
 
             if ("ADMIN".equalsIgnoreCase(user.getRole())) {
 
@@ -52,6 +59,10 @@ public class LoginServlet extends HttpServlet {
 
         }
 
+    }
+
+    private String clean(String value) {
+        return value == null ? "" : value.trim();
     }
 
 }

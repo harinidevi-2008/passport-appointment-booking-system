@@ -14,6 +14,7 @@ import java.util.logging.Logger;
 
 import com.pabs.dao.DocumentDAO;
 import com.pabs.model.Document;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.MultipartConfig;
@@ -86,6 +87,11 @@ public class DocumentUploadServlet extends HttpServlet {
 
         if (!isUser(session)) {
             response.sendRedirect("admin-dashboard.jsp");
+            return;
+        }
+
+        if (!CsrfUtil.isValid(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 

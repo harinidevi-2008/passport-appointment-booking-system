@@ -16,6 +16,7 @@ import com.pabs.dao.PassportApplicationDAO;
 import com.pabs.model.Appointment;
 import com.pabs.model.PassportApplication;
 import com.pabs.service.EmailService;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.mail.MessagingException;
 import jakarta.servlet.ServletException;
@@ -89,6 +90,11 @@ public class PassportApplicationServlet extends HttpServlet {
         HttpSession session = request.getSession(false);
         if (!isLoggedInUser(session)) {
             redirectBySession(session, response);
+            return;
+        }
+
+        if (!CsrfUtil.isValid(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
 
@@ -225,6 +231,7 @@ public class PassportApplicationServlet extends HttpServlet {
         }
 
         request.setAttribute("application", application);
+        request.setAttribute("statusHistory", applicationDAO.getStatusHistoryByApplicationId(applicationId));
         Appointment activeAppointment = appointmentDAO.findActiveAppointmentForApplication(applicationId, userId);
         Appointment latestAppointment = appointmentDAO.findLatestByApplicationId(applicationId);
         request.setAttribute("activeAppointment", activeAppointment);

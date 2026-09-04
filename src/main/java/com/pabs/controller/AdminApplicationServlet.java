@@ -25,6 +25,7 @@ import com.pabs.model.PassportApplication;
 import com.pabs.model.PassportOffice;
 import com.pabs.service.AppointmentNotificationService;
 import com.pabs.service.EmailService;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.mail.MessagingException;
 import jakarta.servlet.ServletException;
@@ -113,12 +114,16 @@ public class AdminApplicationServlet extends HttpServlet {
         }
 
         String action = clean(request.getParameter("action"));
+        if (!CsrfUtil.isValid(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
         if (!"updateStatus".equals(action)) {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return;
         }
 
-        updateApplicationStatus(request, response);
+        updateApplicationStatus(request, response, session);
     }
 
     private void showApplicationQueue(HttpServletRequest request,
@@ -159,12 +164,14 @@ public class AdminApplicationServlet extends HttpServlet {
         }
 
         request.setAttribute("applicationView", buildView(application));
+        request.setAttribute("statusHistory", applicationDAO.getStatusHistoryByApplicationId(applicationId));
         request.setAttribute("nextStatuses", nextStatuses(application.getStatus()));
         request.getRequestDispatcher("admin-application-details.jsp").forward(request, response);
     }
 
     private void updateApplicationStatus(HttpServletRequest request,
-                                         HttpServletResponse response)
+                                         HttpServletResponse response,
+                                         HttpSession session)
             throws IOException, ServletException {
 
         Integer applicationId = parseInt(request.getParameter("applicationId"));
@@ -197,7 +204,8 @@ public class AdminApplicationServlet extends HttpServlet {
         }
 
         boolean updated = applicationDAO.updateApplicationStatus(
-                applicationId, application.getStatus(), requestedStatus, noteToStore);
+                applicationId, application.getStatus(), requestedStatus, noteToStore,
+                (Integer) session.getAttribute("userId"));
         if (!updated) {
             LOGGER.warning("Application status update failed. applicationId=" + applicationId
                     + ", requestedStatus=" + requestedStatus);

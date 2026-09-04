@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.pabs.controller.AppointmentServlet.AppointmentView" %>
+<%@ page import="com.pabs.util.CsrfUtil" %>
 <%!
     private String statusClass(String status) {
         if ("BOOKED".equals(status)) {
@@ -152,6 +153,7 @@
                 <% } %>
                 <% if (appointmentView.isCancellable()) { %>
                     <form action="appointment?action=cancel" method="post" class="m-0">
+                        <input type="hidden" name="csrfToken" value="<%= CsrfUtil.getToken(session) %>">
                         <input type="hidden" name="appointmentId" value="<%= appointmentView.getAppointment().getId() %>">
                         <button type="submit" class="btn btn-outline-danger">Cancel Appointment</button>
                     </form>

@@ -1,4 +1,5 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ page import="com.pabs.util.CsrfUtil" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
 <%!
     private String value(String value) {
@@ -65,6 +66,7 @@
             <% } %>
 
             <form action="passport-application" method="post">
+                <input type="hidden" name="csrfToken" value="<%= CsrfUtil.getToken(session) %>">
                 <section class="card form-section-card">
                     <div class="card-body">
                         <h2>Passport Details</h2>

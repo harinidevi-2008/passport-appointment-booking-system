@@ -7,6 +7,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -21,7 +22,12 @@ import com.pabs.model.AppointmentSlot;
 import com.pabs.model.PassportApplication;
 import com.pabs.model.PassportOffice;
 import com.pabs.service.AppointmentNotificationService;
+import com.pabs.service.AppointmentRecommendationService;
+import com.pabs.service.AppointmentRecommendationService.OfficeDayMetrics;
+import com.pabs.service.AppointmentRecommendationService.OfficeRecommendation;
+import com.pabs.service.AppointmentRecommendationService.SlotRecommendation;
 import com.pabs.service.EmailService;
+import com.pabs.util.CsrfUtil;
 
 import jakarta.mail.MessagingException;
 import jakarta.servlet.ServletException;
@@ -45,6 +51,7 @@ public class AppointmentServlet extends HttpServlet {
     private final EmailNotificationDAO emailNotificationDAO = new EmailNotificationDAO();
     private final EmailService emailService = new EmailService();
     private final AppointmentNotificationService appointmentNotificationService = new AppointmentNotificationService();
+    private final AppointmentRecommendationService recommendationService = new AppointmentRecommendationService();
 
     @Override
     protected void doGet(HttpServletRequest request,
@@ -107,6 +114,11 @@ public class AppointmentServlet extends HttpServlet {
 
         String action = clean(request.getParameter("action"));
 
+        if (!CsrfUtil.isValid(request)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
+
         if ("confirm".equals(action)) {
             confirmAppointment(request, response, session);
             return;
@@ -144,6 +156,9 @@ public class AppointmentServlet extends HttpServlet {
                 && appointmentDAO.findActiveAppointmentForApplication(selectedApplicationId, userId) == null
                 && !appointmentDAO.hasCompletedAppointmentForApplication(selectedApplicationId, userId)) {
             request.setAttribute("selectedApplicationId", selectedApplicationId);
+            ensureNearFutureSlots(offices);
+            request.setAttribute("officeRecommendations",
+                    recommendationService.recommendOffices(selectedApplication, offices, LocalDate.now()));
         }
 
         request.setAttribute("applications", applications);
@@ -212,11 +227,13 @@ public class AppointmentServlet extends HttpServlet {
         List<AppointmentSlotView> slotViews = buildSlotViews(
                 slotDAO.findAvailableActiveSlots(officeId, appointmentDate)
         );
+        OfficeDayMetrics officeDayMetrics = recommendationService.loadOfficeDayMetrics(officeId, appointmentDate);
 
         request.setAttribute("application", application);
         request.setAttribute("office", office);
         request.setAttribute("appointmentDate", appointmentDate);
         request.setAttribute("slotViews", slotViews);
+        request.setAttribute("officeDayMetrics", officeDayMetrics);
         request.getRequestDispatcher("available-slots.jsp").forward(request, response);
     }
 
@@ -298,11 +315,13 @@ public class AppointmentServlet extends HttpServlet {
         List<AppointmentSlotView> slotViews = buildSlotViews(
                 slotDAO.findAvailableActiveSlots(officeId, appointmentDate)
         );
+        OfficeDayMetrics officeDayMetrics = recommendationService.loadOfficeDayMetrics(officeId, appointmentDate);
 
         request.setAttribute("application", appointmentView.getApplication());
         request.setAttribute("office", office);
         request.setAttribute("appointmentDate", appointmentDate);
         request.setAttribute("slotViews", slotViews);
+        request.setAttribute("officeDayMetrics", officeDayMetrics);
         request.setAttribute("isReschedule", Boolean.TRUE);
         request.setAttribute("appointmentView", appointmentView);
         request.getRequestDispatcher("available-slots.jsp").forward(request, response);
@@ -742,16 +761,34 @@ public class AppointmentServlet extends HttpServlet {
 
     private List<AppointmentSlotView> buildSlotViews(List<AppointmentSlot> slots) {
         List<AppointmentSlotView> slotViews = new ArrayList<>();
-        for (AppointmentSlot slot : slots) {
+        Map<Integer, Integer> bookingCounts = slotDAO.countActiveBookingsForSlots(slots);
+        List<SlotRecommendation> recommendations = recommendationService.rankSlots(
+                slots, slotId -> bookingCounts.getOrDefault(slotId, 0));
+        for (SlotRecommendation recommendation : recommendations) {
+            AppointmentSlot slot = recommendation.getSlot();
             if (!isFutureSlot(slot)) {
                 continue;
             }
 
-            int activeBookings = slotDAO.countActiveBookingsForSlot(slot.getId());
-            int remainingCapacity = slot.getCapacity() - activeBookings;
-            slotViews.add(new AppointmentSlotView(slot, Math.max(remainingCapacity, 0)));
+            slotViews.add(new AppointmentSlotView(slot, recommendation));
         }
         return slotViews;
+    }
+
+    private void ensureNearFutureSlots(List<PassportOffice> offices) {
+        if (offices == null) {
+            return;
+        }
+
+        LocalDate date = LocalDate.now();
+        LocalDate endDate = date.plusDays(7);
+        for (PassportOffice office : offices) {
+            LocalDate cursor = date;
+            while (!cursor.isAfter(endDate)) {
+                slotDAO.ensureSlotsForDate(office.getId(), cursor);
+                cursor = cursor.plusDays(1);
+            }
+        }
     }
 
     private boolean isFutureSlot(AppointmentSlot slot) {
@@ -841,10 +878,18 @@ public class AppointmentServlet extends HttpServlet {
     public static class AppointmentSlotView {
         private final AppointmentSlot slot;
         private final int remainingCapacity;
+        private final int bookedCount;
+        private final String crowdLevel;
+        private final String reason;
+        private final boolean recommended;
 
-        public AppointmentSlotView(AppointmentSlot slot, int remainingCapacity) {
+        public AppointmentSlotView(AppointmentSlot slot, SlotRecommendation recommendation) {
             this.slot = slot;
-            this.remainingCapacity = remainingCapacity;
+            this.remainingCapacity = recommendation.getRemainingCapacity();
+            this.bookedCount = recommendation.getBookedCount();
+            this.crowdLevel = recommendation.getCrowdLevel();
+            this.reason = recommendation.getReason();
+            this.recommended = recommendation.isRecommended();
         }
 
         public AppointmentSlot getSlot() {
@@ -853,6 +898,22 @@ public class AppointmentServlet extends HttpServlet {
 
         public int getRemainingCapacity() {
             return remainingCapacity;
+        }
+
+        public int getBookedCount() {
+            return bookedCount;
+        }
+
+        public String getCrowdLevel() {
+            return crowdLevel;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        public boolean isRecommended() {
+            return recommended;
         }
     }
 

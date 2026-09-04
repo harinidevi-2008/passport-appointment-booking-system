@@ -1,8 +1,11 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.pabs.controller.AppointmentServlet" %>
+<%@ page import="com.pabs.dao.PassportApplicationDAO.ApplicationStatusHistory" %>
 <%@ page import="com.pabs.model.Appointment" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
 <%@ page import="java.time.format.DateTimeFormatter" %>
+<%@ page import="java.util.List" %>
+<%@ page import="com.pabs.util.CsrfUtil" %>
 <%!
     private String value(Object value) {
         if (value == null) {
@@ -55,6 +58,7 @@
     }
 
     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy");
+    DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
     String dob = passportApplication.getDateOfBirth() == null
             ? ""
             : passportApplication.getDateOfBirth().format(dateFormatter);
@@ -71,6 +75,9 @@
     boolean canWithdrawApplication = Boolean.TRUE.equals(canWithdrawApplicationAttribute);
     boolean latestNoShow = latestAppointment != null && "NO_SHOW".equals(latestAppointment.getStatus());
     boolean showingWithdrawConfirmation = "1".equals(request.getParameter("confirmWithdraw"));
+    List<ApplicationStatusHistory> statusHistory =
+            (List<ApplicationStatusHistory>) request.getAttribute("statusHistory");
+    String currentStatus = passportApplication.getStatus();
 %>
 <!DOCTYPE html>
 <html>
@@ -156,6 +163,51 @@
                     <div class="col-md-4 detail-label">Processing Status</div>
                     <div class="col-md-8 detail-value"><%= value(passportApplication.getStatus()) %></div>
                 </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Appointment Status</div>
+                    <div class="col-md-8 detail-value"><%= latestAppointment == null ? "Not Booked" : value(latestAppointment.getStatus()) %></div>
+                </div>
+                <div class="row detail-row">
+                    <div class="col-md-4 detail-label">Passport Issuance / Delivery</div>
+                    <div class="col-md-8 detail-value">
+                        <% if ("PRINTING".equals(currentStatus) || "DISPATCHED".equals(currentStatus) || "DELIVERED".equals(currentStatus)) { %>
+                            <%= value(currentStatus) %>
+                        <% } else if ("APPROVED".equals(currentStatus)) { %>
+                            Approved, pending printing
+                        <% } else { %>
+                            Not issued yet
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+
+            <div class="details-section">
+                <h2 class="h5 mb-3">Application Status History</h2>
+                <% if (statusHistory == null || statusHistory.isEmpty()) { %>
+                    <div class="alert alert-secondary mb-0" role="alert">
+                        No stored status history is available for this application yet. Ask an administrator to apply the status-history database migration if this is unexpected.
+                    </div>
+                <% } else { %>
+                    <div class="status-timeline">
+                        <% for (ApplicationStatusHistory item : statusHistory) {
+                            boolean current = item.getNewStatus() != null && item.getNewStatus().equals(currentStatus);
+                            String changedAt = item.getChangedAt() == null
+                                    ? ""
+                                    : item.getChangedAt().toLocalDateTime().format(dateTimeFormatter);
+                            String fromStatus = item.getOldStatus() == null ? "Initial" : item.getOldStatus();
+                        %>
+                            <div class="timeline-step is-done <%= current ? "is-current" : "" %>">
+                                <span><%= current ? "NOW" : "DONE" %></span>
+                                <strong><%= value(item.getNewStatus()) %></strong>
+                                <small><%= value(fromStatus) %> to <%= value(item.getNewStatus()) %></small>
+                                <small><%= value(changedAt) %></small>
+                                <% if (item.getNote() != null && !item.getNote().trim().isEmpty()) { %>
+                                    <small><%= value(item.getNote()) %></small>
+                                <% } %>
+                            </div>
+                        <% } %>
+                    </div>
+                <% } %>
             </div>
 
             <div class="details-section">
@@ -236,6 +288,7 @@
                         </p>
                     </div>
                     <form action="application-details" method="post" class="d-flex flex-column flex-sm-row gap-2">
+                        <input type="hidden" name="csrfToken" value="<%= CsrfUtil.getToken(session) %>">
                         <input type="hidden" name="action" value="withdraw">
                         <input type="hidden" name="applicationId" value="<%= passportApplication.getId() %>">
                         <button type="submit" class="btn btn-danger">Confirm Withdrawal</button>

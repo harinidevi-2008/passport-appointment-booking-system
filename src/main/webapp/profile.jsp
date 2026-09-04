@@ -1,5 +1,6 @@
 <%@ page contentType="text/html;charset=UTF-8" language="java" %>
 <%@ page import="com.pabs.model.User" %>
+<%@ page import="com.pabs.util.CsrfUtil" %>
 <%!
     private String value(Object value) {
         if (value == null) {
@@ -52,6 +53,7 @@
             <a class="nav-link" href="documents">Upload Documents</a>
             <a class="nav-link" href="appointment?action=my">My Appointments</a>
             <a class="nav-link active" href="profile">My Profile</a>
+            <a class="nav-link" href="change-password">Change Password</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -67,7 +69,10 @@
                     <p class="mb-0">Manage your current PABS account details.</p>
                 </div>
                 <% if (!editMode) { %>
-                    <a class="btn btn-primary" href="profile?mode=edit">Edit Profile</a>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <a class="btn btn-primary" href="profile?mode=edit">Edit Profile</a>
+                        <a class="btn btn-outline-primary" href="change-password">Change Password</a>
+                    </div>
                 <% } %>
             </div>
 
@@ -81,6 +86,7 @@
 
             <% if (editMode) { %>
                 <form action="profile" method="post" class="needs-validation" novalidate>
+                    <input type="hidden" name="csrfToken" value="<%= CsrfUtil.getToken(session) %>">
                     <section class="card form-section-card">
                         <div class="card-body">
                             <h2>Personal Information</h2>

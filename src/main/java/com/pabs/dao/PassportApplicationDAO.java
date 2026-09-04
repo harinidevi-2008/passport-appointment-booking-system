@@ -9,11 +9,15 @@ import java.sql.Statement;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.pabs.model.PassportApplication;
 import com.pabs.util.DBConnection;
 
 public class PassportApplicationDAO {
+
+    private static final Logger LOGGER = Logger.getLogger(PassportApplicationDAO.class.getName());
 
     private static final String INSERT_APPLICATION =
             "INSERT INTO passport_applications(application_number, user_id, application_type, passport_mode, "
@@ -47,7 +51,7 @@ public class PassportApplicationDAO {
             "SELECT id FROM appointments WHERE application_id=? AND status='COMPLETED' LIMIT 1";
 
     private static final String LOCK_WITHDRAWABLE_APPLICATION_FOR_USER =
-            "SELECT id FROM passport_applications "
+            "SELECT id, status FROM passport_applications "
                     + "WHERE id=? AND user_id=? AND status IN ('SUBMITTED', 'UNDER_REVIEW', 'VERIFIED') "
                     + "FOR UPDATE";
 
@@ -59,12 +63,21 @@ public class PassportApplicationDAO {
             "UPDATE appointments SET status='CANCELLED', cancelled_at=CURRENT_TIMESTAMP "
                     + "WHERE application_id=? AND user_id=? AND status IN ('BOOKED', 'RESCHEDULED', 'ATTENDED')";
 
+    private static final String INSERT_STATUS_HISTORY =
+            "INSERT INTO application_status_history(application_id, old_status, new_status, changed_by_user_id, note) "
+                    + "VALUES(?,?,?,?,?)";
+
+    private static final String SELECT_STATUS_HISTORY =
+            "SELECT id, application_id, old_status, new_status, changed_by_user_id, note, changed_at "
+                    + "FROM application_status_history WHERE application_id=? ORDER BY changed_at, id";
+
     public boolean createApplication(PassportApplication application) {
         Connection connection = null;
 
         try {
             connection = DBConnection.getConnection();
             if (connection == null) {
+                LOGGER.warning("Application submission failed: database connection was unavailable.");
                 return false;
             }
 
@@ -92,12 +105,14 @@ public class PassportApplicationDAO {
 
                 if (ps.executeUpdate() == 0) {
                     connection.rollback();
+                    LOGGER.warning("Application submission failed: application insert affected zero rows.");
                     return false;
                 }
 
                 try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
                     if (!generatedKeys.next()) {
                         connection.rollback();
+                        LOGGER.warning("Application submission failed: generated application ID was not returned.");
                         return false;
                     }
 
@@ -110,6 +125,7 @@ public class PassportApplicationDAO {
 
                         if (updatePs.executeUpdate() == 0) {
                             connection.rollback();
+                            LOGGER.warning("Application submission failed: application number update affected zero rows.");
                             return false;
                         }
                     }
@@ -117,6 +133,8 @@ public class PassportApplicationDAO {
                     application.setId(id);
                     application.setApplicationNumber(applicationNumber);
                     application.setStatus("SUBMITTED");
+                    insertStatusHistory(connection, id, null, "SUBMITTED", application.getUserId(),
+                            "Application submitted");
                 }
             }
 
@@ -125,7 +143,12 @@ public class PassportApplicationDAO {
 
         } catch (SQLException e) {
             rollbackQuietly(connection);
-            e.printStackTrace();
+            LOGGER.log(Level.SEVERE,
+                "Application submission database failure. sqlState=" + e.getSQLState()
+                    + ", errorCode=" + e.getErrorCode()
+                    + ", exceptionType=" + e.getClass().getName()
+                    + ", message=" + e.getMessage(),
+                e);
         } finally {
             closeQuietly(connection);
         }
@@ -202,21 +225,41 @@ public class PassportApplicationDAO {
     }
 
     public boolean updateApplicationStatus(int applicationId, String currentStatus, String status, String reviewNote) {
+        return updateApplicationStatus(applicationId, currentStatus, status, reviewNote, null);
+    }
 
-        try (
-                Connection connection = DBConnection.getConnection();
-                PreparedStatement ps = connection.prepareStatement(UPDATE_STATUS)
-        ) {
+    public boolean updateApplicationStatus(int applicationId,
+                                           String currentStatus,
+                                           String status,
+                                           String reviewNote,
+                                           Integer changedByUserId) {
+        Connection connection = null;
 
-            ps.setString(1, status);
-            ps.setString(2, reviewNote);
-            ps.setInt(3, applicationId);
-            ps.setString(4, currentStatus);
+        try {
+            connection = DBConnection.getConnection();
+            connection.setAutoCommit(false);
 
-            return ps.executeUpdate() == 1;
+            try (PreparedStatement ps = connection.prepareStatement(UPDATE_STATUS)) {
+                ps.setString(1, status);
+                ps.setString(2, reviewNote);
+                ps.setInt(3, applicationId);
+                ps.setString(4, currentStatus);
+
+                if (ps.executeUpdate() != 1) {
+                    connection.rollback();
+                    return false;
+                }
+            }
+
+            insertStatusHistory(connection, applicationId, currentStatus, status, changedByUserId, reviewNote);
+            connection.commit();
+            return true;
 
         } catch (SQLException e) {
+            rollbackQuietly(connection);
             e.printStackTrace();
+        } finally {
+            closeQuietly(connection);
         }
 
         return false;
@@ -246,6 +289,7 @@ public class PassportApplicationDAO {
         try {
             connection = DBConnection.getConnection();
             connection.setAutoCommit(false);
+            String oldStatus;
 
             try (PreparedStatement lockPs = connection.prepareStatement(LOCK_WITHDRAWABLE_APPLICATION_FOR_USER)) {
                 lockPs.setInt(1, applicationId);
@@ -256,6 +300,7 @@ public class PassportApplicationDAO {
                         connection.rollback();
                         return false;
                     }
+                    oldStatus = rs.getString("status");
                 }
             }
 
@@ -277,6 +322,8 @@ public class PassportApplicationDAO {
                 }
             }
 
+            insertStatusHistory(connection, applicationId, oldStatus, "CANCELLED", userId, reviewNote);
+
             connection.commit();
             return true;
 
@@ -288,6 +335,31 @@ public class PassportApplicationDAO {
         }
 
         return false;
+    }
+
+    public List<ApplicationStatusHistory> getStatusHistoryByApplicationId(int applicationId) {
+        List<ApplicationStatusHistory> history = new ArrayList<>();
+
+        try (Connection connection = DBConnection.getConnection()) {
+            if (connection == null) {
+                return history;
+            }
+
+            try (PreparedStatement ps = connection.prepareStatement(SELECT_STATUS_HISTORY)) {
+                ps.setInt(1, applicationId);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        history.add(mapStatusHistory(rs));
+                    }
+                }
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+        return history;
     }
 
     private String generateApplicationNumber(int id) {
@@ -320,6 +392,40 @@ public class PassportApplicationDAO {
         return application;
     }
 
+    private ApplicationStatusHistory mapStatusHistory(ResultSet rs) throws SQLException {
+        ApplicationStatusHistory history = new ApplicationStatusHistory();
+        history.setId(rs.getInt("id"));
+        history.setApplicationId(rs.getInt("application_id"));
+        history.setOldStatus(rs.getString("old_status"));
+        history.setNewStatus(rs.getString("new_status"));
+        int changedBy = rs.getInt("changed_by_user_id");
+        history.setChangedByUserId(rs.wasNull() ? null : changedBy);
+        history.setNote(rs.getString("note"));
+        history.setChangedAt(rs.getTimestamp("changed_at"));
+        return history;
+    }
+
+    private void insertStatusHistory(Connection connection,
+                                     int applicationId,
+                                     String oldStatus,
+                                     String newStatus,
+                                     Integer changedByUserId,
+                                     String note)
+            throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(INSERT_STATUS_HISTORY)) {
+            ps.setInt(1, applicationId);
+            ps.setString(2, oldStatus);
+            ps.setString(3, newStatus);
+            if (changedByUserId == null) {
+                ps.setNull(4, java.sql.Types.INTEGER);
+            } else {
+                ps.setInt(4, changedByUserId);
+            }
+            ps.setString(5, note);
+            ps.executeUpdate();
+        }
+    }
+
     private void rollbackQuietly(Connection connection) {
         if (connection != null) {
             try {
@@ -338,6 +444,72 @@ public class PassportApplicationDAO {
             } catch (SQLException e) {
                 e.printStackTrace();
             }
+        }
+    }
+
+    public static class ApplicationStatusHistory {
+        private int id;
+        private int applicationId;
+        private String oldStatus;
+        private String newStatus;
+        private Integer changedByUserId;
+        private String note;
+        private java.sql.Timestamp changedAt;
+
+        public int getId() {
+            return id;
+        }
+
+        public void setId(int id) {
+            this.id = id;
+        }
+
+        public int getApplicationId() {
+            return applicationId;
+        }
+
+        public void setApplicationId(int applicationId) {
+            this.applicationId = applicationId;
+        }
+
+        public String getOldStatus() {
+            return oldStatus;
+        }
+
+        public void setOldStatus(String oldStatus) {
+            this.oldStatus = oldStatus;
+        }
+
+        public String getNewStatus() {
+            return newStatus;
+        }
+
+        public void setNewStatus(String newStatus) {
+            this.newStatus = newStatus;
+        }
+
+        public Integer getChangedByUserId() {
+            return changedByUserId;
+        }
+
+        public void setChangedByUserId(Integer changedByUserId) {
+            this.changedByUserId = changedByUserId;
+        }
+
+        public String getNote() {
+            return note;
+        }
+
+        public void setNote(String note) {
+            this.note = note;
+        }
+
+        public java.sql.Timestamp getChangedAt() {
+            return changedAt;
+        }
+
+        public void setChangedAt(java.sql.Timestamp changedAt) {
+            this.changedAt = changedAt;
         }
     }
 }

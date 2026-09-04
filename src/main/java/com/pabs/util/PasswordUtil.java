@@ -37,7 +37,7 @@ public final class PasswordUtil {
         }
 
         if (!storedPassword.startsWith(HASH_PREFIX + "$")) {
-            return password.equals(storedPassword);
+            return false;
         }
 
         String[] parts = storedPassword.split("\\$");

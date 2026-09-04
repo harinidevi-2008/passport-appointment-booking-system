@@ -4,6 +4,7 @@
 <%@ page import="com.pabs.controller.AppointmentServlet" %>
 <%@ page import="com.pabs.model.PassportApplication" %>
 <%@ page import="com.pabs.model.PassportOffice" %>
+<%@ page import="com.pabs.service.AppointmentRecommendationService.OfficeRecommendation" %>
 <%
     if (session == null || session.getAttribute("userId") == null) {
         response.sendRedirect("login.jsp");
@@ -22,6 +23,8 @@
             (List<PassportApplication>) request.getAttribute("applications");
     List<PassportOffice> offices = (List<PassportOffice>) request.getAttribute("offices");
     Integer selectedApplicationId = (Integer) request.getAttribute("selectedApplicationId");
+    List<OfficeRecommendation> officeRecommendations =
+            (List<OfficeRecommendation>) request.getAttribute("officeRecommendations");
 %>
 <!DOCTYPE html>
 <html>
@@ -30,7 +33,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Book Appointment</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=smart-office-cards-20260904">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg user-navbar">
@@ -40,8 +43,10 @@
             <a class="nav-link" href="user-dashboard.jsp">Dashboard</a>
             <a class="nav-link" href="passport-application">Apply Passport</a>
             <a class="nav-link" href="my-applications">My Applications</a>
-            <a class="nav-link active" href="appointment?action=my">My Appointments</a>
+            <a class="nav-link active" href="appointment?action=book">Smart Recommendations</a>
+            <a class="nav-link" href="appointment?action=my">My Appointments</a>
             <a class="nav-link" href="profile">My Profile</a>
+            <a class="nav-link" href="change-password">Change Password</a>
             <a class="btn btn-outline-light btn-sm" href="logout">Logout</a>
         </div>
     </div>
@@ -78,10 +83,87 @@
                 </div>
             <% } %>
 
+            <% if (eligibleApplications != null && !eligibleApplications.isEmpty()) { %>
+                <div class="dashboard-panel mb-4">
+                    <form action="appointment" method="get" class="row g-3 align-items-end">
+                        <input type="hidden" name="action" value="book">
+                        <div class="col-lg-9">
+                            <label for="recommendationApplicationId" class="form-label">Verified Application</label>
+                            <select class="form-select" id="recommendationApplicationId" name="applicationId" required>
+                                <option value="">Select a verified application to see recommended offices</option>
+                                <% for (PassportApplication passportApplication : eligibleApplications) { %>
+                                    <option value="<%= passportApplication.getId() %>" <%= selectedApplicationId != null && selectedApplicationId == passportApplication.getId() ? "selected" : "" %>>
+                                        <%= passportApplication.getApplicationNumber() %> - <%= passportApplication.getApplicationType() %>
+                                    </option>
+                                <% } %>
+                            </select>
+                        </div>
+                        <div class="col-lg-3">
+                            <button type="submit" class="btn btn-primary w-100">Show Recommended Offices</button>
+                        </div>
+                    </form>
+                </div>
+            <% } %>
+
+            <% if (officeRecommendations != null && !officeRecommendations.isEmpty()) { %>
+                <div class="recommendation-panel mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between gap-2 mb-3">
+                        <div>
+                            <h2 class="h5 mb-1">Smart Office Recommendation</h2>
+                            <p class="text-muted mb-0">Based on your registered location, approximate distance, office/day utilization, appointment availability, and earliest appointment.</p>
+                        </div>
+                    </div>
+                    <div class="smart-office-grid">
+                        <% int officeLimit = Math.min(3, officeRecommendations.size());
+                           for (int i = 0; i < officeLimit; i++) {
+                               OfficeRecommendation recommendation = officeRecommendations.get(i);
+                               PassportOffice recommendedOffice = recommendation.getOffice();
+                        %>
+                            <article class="recommendation-card <%= recommendation.isRecommended() ? "recommendation-card--recommended" : "" %>">
+                                    <div class="smart-office-header">
+                                        <span class="recommendation-mark"><%= recommendation.isRecommended() ? "Recommended" : "Alternative" %></span>
+                                        <h3><%= recommendedOffice.getOfficeName() %></h3>
+                                        <p><%= recommendedOffice.getCity() %>, <%= recommendedOffice.getState() %></p>
+                                    </div>
+                                    <div class="smart-office-metrics">
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Approx. Distance</span><strong class="smart-office-metric-value"><%= String.format("%.1f", recommendation.getDistanceKm()) %> km</strong></div>
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Office Crowd</span><strong class="smart-office-metric-value"><span class="badge crowd-<%= recommendation.getCrowdLevel().toLowerCase() %>"><%= recommendation.getCrowdLevel() %></span></strong></div>
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Daily Utilization</span><strong class="smart-office-metric-value"><%= recommendation.getAverageUtilizationPercent() %>%</strong></div>
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Daily Capacity</span><strong class="smart-office-metric-value"><%= recommendation.getDailyCapacity() %></strong></div>
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Occupied</span><strong class="smart-office-metric-value"><%= recommendation.getDailyOccupied() %></strong></div>
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Available Capacity</span><strong class="smart-office-metric-value"><%= recommendation.getAvailableSlots() %> seats</strong></div>
+                                        <div class="smart-office-metric"><span class="smart-office-metric-label">Earliest Appointment</span><strong class="smart-office-metric-value"><%= recommendation.getEarliestDate() %> <%= recommendation.getEarliestStartTime() %></strong></div>
+                                    </div>
+                                    <div class="recommendation-reasons">
+                                        <strong><%= recommendation.isRecommended() ? "Recommended because:" : "Why this office:" %></strong>
+                                        <ul>
+                                            <% if (recommendation.getDistanceKm() <= 75.0) { %><li>reasonable distance from your stored city/state</li><% } %>
+                                            <% if ("LOW".equals(recommendation.getCrowdLevel())) { %><li>low office/day crowd</li><% } %>
+                                            <% if (recommendation.getAvailableSlots() >= 6) { %><li>good available capacity</li><% } %>
+                                            <% if (recommendation.getEarliestDate() != null) { %><li>early appointment availability</li><% } %>
+                                        </ul>
+                                    </div>
+                                    <form action="appointment" method="get" class="mt-3">
+                                        <input type="hidden" name="action" value="slots">
+                                        <input type="hidden" name="applicationId" value="<%= selectedApplicationId %>">
+                                        <input type="hidden" name="officeId" value="<%= recommendedOffice.getId() %>">
+                                        <input type="hidden" name="date" value="<%= recommendation.getEarliestDate() %>">
+                                        <button type="submit" class="btn btn-primary smart-office-cta">View Slots <span aria-hidden="true">-&gt;</span></button>
+                                    </form>
+                            </article>
+                        <% } %>
+                    </div>
+                </div>
+            <% } %>
+
             <% if (eligibleApplications == null || eligibleApplications.isEmpty()) { %>
                 <div class="empty-state">
                     <p class="mb-3">No VERIFIED passport applications without an active appointment are available for appointment booking.</p>
                     <a class="btn btn-primary" href="my-applications">View My Applications</a>
+                </div>
+            <% } else if (selectedApplicationId == null) { %>
+                <div class="empty-state">
+                    <p class="mb-0">Select a verified application above to view smart office recommendations before choosing an office manually.</p>
                 </div>
             <% } else if (offices == null || offices.isEmpty()) { %>
                 <div class="empty-state">

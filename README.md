@@ -37,6 +37,12 @@ The older `PABS_MAIL_USERNAME`, `PABS_MAIL_PASSWORD`, `PABS_MAIL_HOST`, `PABS_MA
 
 Never commit real mail passwords, SMTP secrets, API keys, or `.env` files.
 
+## Database Setup
+
+Run the SQL files in `database/` against `passport_db` before starting the application. In particular, apply `appointment_slots_capacity_three_migration.sql` to an existing database to change legacy appointment slots with `capacity = 1` to `3`; it does not alter slots already above `1` or delete appointments. Apply `application_status_history.sql` when upgrading a database that does not yet have the application history table.
+
+New appointment slots use a database default capacity of `3`. The application displays the stored capacity value, so existing rows remain unchanged until the capacity migration is run.
+
 ---
 
 ## 🚀 Current Module
